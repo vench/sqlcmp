@@ -37,6 +37,7 @@ const (
 	SQLOrder  = "ORDER"
 	SQLGroup  = "GROUP"
 	SQLBy     = "BY"
+	SQLAs     = "AS"
 
 	// Operators
 	ASSIGN       = "="
@@ -89,6 +90,7 @@ var keywords = map[string]TokenType{
 	"order":  SQLOrder,
 	"group":  SQLGroup,
 	"by":     SQLBy,
+	"as":     SQLAs,
 }
 
 func LookupIdent(ident string) TokenType {

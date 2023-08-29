@@ -2,7 +2,6 @@ package sqlcmp
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 )
 
@@ -95,8 +94,9 @@ func (rs *ReturnStatement) String() string {
 
 // SQLSelectStatement todo.
 type SQLSelectStatement struct {
-	Token          Token // the 'select' token
-	SQLSelectValue []Expression
+	Token            Token // the 'select' token
+	SQLSelectColumns []Expression
+	From             []Expression
 }
 
 func (rs *SQLSelectStatement) statementNode()       {}
@@ -104,11 +104,34 @@ func (rs *SQLSelectStatement) TokenLiteral() string { return rs.Token.Literal }
 
 func (rs *SQLSelectStatement) String() string {
 	var out bytes.Buffer
-	out.WriteString(rs.TokenLiteral() + " ")
-	if rs.SQLSelectValue != nil {
-		out.WriteString(fmt.Sprintf("%v", rs.SQLSelectValue))
+	out.WriteString(SQLSelect)
+
+	if rs.SQLSelectColumns != nil {
+		for i := range rs.SQLSelectColumns {
+			if i != 0 {
+				out.WriteString(",")
+			}
+			out.WriteString(" ")
+
+			out.WriteString(rs.SQLSelectColumns[i].String())
+		}
 	}
+
+	if rs.From != nil {
+		out.WriteString(" " + SQLFrom)
+
+		for i := range rs.From {
+			if i != 0 {
+				out.WriteString(",")
+			}
+
+			out.WriteString(" ")
+			out.WriteString(rs.From[i].String())
+		}
+	}
+
 	out.WriteString(";")
+
 	return out.String()
 }
 
@@ -302,9 +325,15 @@ func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return sl.Token.Literal }
 
 // SQLColumn todo.
+// TODO: maybe chnage as SQL common exp.
 type SQLColumn struct {
-	StringLiteral
+	Token Token
+	Value string
 }
+
+func (sl *SQLColumn) expressionNode()      {}
+func (sl *SQLColumn) TokenLiteral() string { return sl.Token.Literal }
+func (sl *SQLColumn) String() string       { return sl.Value }
 
 // ArrayLiteral todo.
 type ArrayLiteral struct {

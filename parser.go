@@ -85,7 +85,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
 	p.registerInfix(LPAREN, p.parseCallExpression)
 	p.registerPrefix(STRING, p.parseStringLiteral)
-	p.registerPrefix(STRING, p.parseSQLColumn)
+	//p.registerPrefix(STRING, p.parseSQLColumn)
 	p.registerPrefix(LBRACKET, p.parseArrayLiteral)
 	p.registerInfix(LBRACKET, p.parseIndexExpression)
 
@@ -93,7 +93,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(LBRACE, p.parseSetsLiteralShort)
 	p.registerPrefix(HASH, p.parseHashLiteral)
 
-	p.registerPrefix(SQLSelect, p.parseSQLSelect)
+	//p.registerPrefix(SQLSelect, p.parseSQLSelect)
 
 	return p
 }
@@ -111,6 +111,7 @@ func (p *Parser) ParseProgram() *Program {
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
 		}
+
 		p.nextToken()
 	}
 	return program
@@ -179,25 +180,34 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	stmt := &SQLSelectStatement{Token: p.curToken}
 	p.nextToken()
 
-	v := p.parseExpression(LOWEST)
-	stmt.SQLSelectValue = append(stmt.SQLSelectValue, v)
-	if p.peekTokenIs(SEMICOLON) {
-		p.nextToken()
-		// end expression
+	// parse columns
+	for !p.curTokenIs(SEMICOLON) && !p.curTokenIs(EOF) && !p.curTokenIs(SQLFrom) {
+		if p.curTokenIs(COMMA) {
+			p.nextToken() // next arg
+		}
+
+		if v := p.parseSQLColumn(); v != nil {
+			stmt.SQLSelectColumns = append(stmt.SQLSelectColumns, v)
+		}
+	}
+
+	// parse from
+	if !p.curTokenIs(SQLFrom) {
+		if !p.curTokenIs(SEMICOLON) && !p.curTokenIs(EOF) {
+			p.peekError(SEMICOLON)
+		}
+
 		return stmt
 	}
+	p.nextToken()
 
-	if p.peekTokenIs(COMMA) {
-		p.nextToken() // next arg
-		p.nextToken()
-
-		v2 := p.parseExpression(LOWEST)
-		stmt.SQLSelectValue = append(stmt.SQLSelectValue, v2)
-
-	}
-
-	if p.peekTokenIs(SEMICOLON) {
-		p.nextToken()
+	for !p.curTokenIs(SEMICOLON) && !p.curTokenIs(EOF) && !p.curTokenIs(SQLWhere) && !p.curTokenIs(SQLGroup) {
+		if p.curTokenIs(COMMA) {
+			p.nextToken() // next arg
+		}
+		if v := p.parseSQLColumn(); v != nil {
+			stmt.From = append(stmt.From, v)
+		}
 	}
 
 	return stmt
@@ -237,25 +247,30 @@ func (p *Parser) parseExpression(precedence int) Expression {
 	prefixs := p.prefixParseFns[p.curToken.Type]
 	if len(prefixs) == 0 {
 		p.noPrefixParseFnError(p.curToken.Type)
+
 		return nil
 	}
-	//fmt.Println(p.curToken.Literal)
+
 	for _, prefix := range prefixs {
 		leftExp := prefix()
 
 		if leftExp == nil {
 			continue
 		}
+
 		for !p.peekTokenIs(SEMICOLON) && precedence < p.peekPrecedence() {
 			infix := p.infixParseFns[p.peekToken.Type]
 			if infix == nil {
 				return leftExp
 			}
+
 			p.nextToken()
 			leftExp = infix(leftExp)
 		}
+
 		return leftExp
 	}
+
 	return nil
 }
 
@@ -456,7 +471,22 @@ func (p *Parser) parseStringLiteral() Expression {
 }
 
 func (p *Parser) parseSQLColumn() Expression {
-	return &SQLColumn{StringLiteral: StringLiteral{Token: p.curToken, Value: p.curToken.Literal}}
+	col := &SQLColumn{Token: p.curToken, Value: ""}
+	col.Value += p.curToken.Literal
+
+	for !p.peekTokenIs(COMMA) && !p.peekTokenIs(EOF) && !p.peekTokenIs(SQLFrom) && !p.peekTokenIs(SEMICOLON) {
+		p.nextToken()
+
+		if p.curTokenIs(SQLAs) { // TODO save AS different.
+			col.Value += " AS "
+		} else {
+			col.Value += p.curToken.Literal
+		}
+	}
+
+	p.nextToken()
+
+	return col
 }
 
 func (p *Parser) parseArrayLiteral() Expression {

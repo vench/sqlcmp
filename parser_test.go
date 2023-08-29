@@ -2,21 +2,32 @@ package sqlcmp
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSSQLSelectStatements(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		input              string
-		expectedIdentifier string
-		expectedValue      interface{}
+		input         string
+		expectedQuery string
+		expectedValue interface{}
 	}{
-		{input: "Select id, name;"},
-		// {input: "Select * from table"},
+		{input: "Select;", expectedQuery: "SELECT;"},
+		{input: "Select now();", expectedQuery: "SELECT now();"},
+		{input: "Select now() as dt;", expectedQuery: "SELECT now() AS dt;"},
+		{input: "Select name", expectedQuery: "SELECT name;"},
+		{input: "Select id, name", expectedQuery: "SELECT id, name;"},
+		{input: "Select id, name, `date` as `dt`;", expectedQuery: "SELECT id, name, `date` AS `dt`;"},
+		{input: "Select id from table", expectedQuery: "SELECT id FROM table;"},
+		{input: "select * from `users`", expectedQuery: "SELECT * FROM `users`;"},
+		{input: "select t.* from `users` AS t", expectedQuery: "SELECT t.* FROM `users` AS t;"},
+		{input: "select *,id AS \"ID\" from `users`", expectedQuery: "SELECT *, id AS ID FROM `users`;"},
+		{input: "select name as nm from users", expectedQuery: "SELECT name AS nm FROM users;"},
+		{input: "Select a.id, b.date as dt from table as a, users as b", expectedQuery: "SELECT a.id, b.date AS dt FROM table AS a, users AS b;"},
 	}
 
 	for _, tt := range tests {
@@ -25,26 +36,23 @@ func TestSSQLSelectStatements(t *testing.T) {
 		program := p.ParseProgram()
 		checkParserErrors(t, p)
 
-		t.Log(program.Statements)
-
 		if len(program.Statements) != 1 {
 			t.Fatalf("program.Statements does not contain 1 statements. got=%d",
 				len(program.Statements))
 		}
 		stmt := program.Statements[0]
 
-		v, ok := stmt.(*ExpressionStatement)
-		t.Log(v, ok)
-		t.Log(reflect.TypeOf(stmt))
-
-		if !testSelectStatement(t, stmt, tt.expectedIdentifier) {
+		if !testSelectStatement(t, stmt, tt.expectedQuery) {
 			return
 		}
-		/*
-			val := stmt.(*LetStatement).Value
-			if !testLiteralExpression(t, val, tt.expectedValue) {
-				return
-			}*/
+
+		val, ok := stmt.(*SQLSelectStatement)
+		require.True(t, ok)
+
+		t.Log(val.String())
+		//if !testLiteralExpression(t, val, tt.expectedValue) {
+		//	return
+		//}
 	}
 }
 
@@ -194,11 +202,15 @@ func checkParserErrors(t *testing.T, p *Parser) {
 	t.FailNow()
 }
 
-func testSelectStatement(t *testing.T, s Statement, name string) bool {
+func testSelectStatement(t *testing.T, s Statement, exp string) bool {
+	t.Helper()
+
 	if !strings.EqualFold(s.TokenLiteral(), "select") {
 		t.Errorf("s.TokenLiteral not 'select'. got=%q", s.TokenLiteral())
 		return false
 	}
+
+	require.Equal(t, exp, s.String())
 
 	return true
 }

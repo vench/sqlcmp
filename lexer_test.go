@@ -4,6 +4,47 @@ import (
 	"testing"
 )
 
+func TestNextTokenSQLSelect(t *testing.T) {
+	t.Parallel()
+
+	input := `SELECT id, name, date as dt, now() as dt2`
+
+	tests := []struct {
+		expectedType    TokenType
+		expectedLiteral string
+	}{
+		{SQLSelect, "SELECT"},
+		{IDENT, "id"},
+		{COMMA, ","},
+		{IDENT, "name"},
+		{COMMA, ","},
+		{IDENT, "date"},
+		{IDENT, "as"},
+		{IDENT, "dt"},
+		{COMMA, ","},
+		{IDENT, "now"},
+		{LPAREN, "("},
+		{RPAREN, ")"},
+		{IDENT, "as"},
+		{IDENT, "dt2"},
+		{EOF, ""},
+	}
+
+	l := NewLexer(input)
+
+	for i, tt := range tests {
+		tok := l.NextToken()
+		if tok.Type != tt.expectedType {
+			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q",
+				i, tt.expectedType, tok.Type)
+		}
+		if tok.Literal != tt.expectedLiteral {
+			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
+				i, tt.expectedLiteral, tok.Literal)
+		}
+	}
+}
+
 func TestNextTokenSQL(t *testing.T) {
 	t.Parallel()
 
