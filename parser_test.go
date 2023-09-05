@@ -8,7 +8,77 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSSQLSelectStatements(t *testing.T) {
+func TestParser_parseSQLCond(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input         string
+		expectedQuery string
+		expectedValue any
+	}{
+		{input: "id=1", expectedQuery: "(id = 1)", expectedValue: &SQLCondition{
+			Expression: &InfixExpression{
+				Token:    Token{Type: ASSIGN, Literal: ASSIGN},
+				Left:     &Identifier{Token: Token{Type: IDENT, Literal: "id"}, Value: "id"},
+				Operator: ASSIGN,
+				Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
+			},
+		}},
+		{
+			input: "id>100", expectedQuery: "(id > 100)", expectedValue: &SQLCondition{
+				Expression: &InfixExpression{
+					Token:    Token{Type: GT, Literal: ">"},
+					Left:     &Identifier{Token: Token{Type: IDENT, Literal: "id"}, Value: "id"},
+					Operator: GT,
+					Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "100"}, Value: 100},
+				},
+			},
+		},
+		{
+			input: "name = 'test*'", expectedQuery: "(name = test*)", expectedValue: &SQLCondition{
+				Expression: &InfixExpression{
+					Token:    Token{Type: ASSIGN, Literal: "="},
+					Left:     &Identifier{Token: Token{Type: IDENT, Literal: "name"}, Value: "name"},
+					Operator: ASSIGN,
+					Right:    &StringLiteral{Token: Token{Type: STRING, Literal: "test*"}, Value: "test*"},
+				},
+			},
+		},
+		{
+			input: "x=1 and y=2", expectedQuery: "((x = 1) and (y = 2))", expectedValue: &SQLCondition{
+				Expression: &SQLCondition{
+					Expression: &InfixExpression{
+						Token: Token{Type: SQLAnd, Literal: "and"},
+						Left: &InfixExpression{
+							Token:    Token{Type: ASSIGN, Literal: ASSIGN},
+							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "x"}, Value: "x"},
+							Operator: ASSIGN,
+							Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
+						},
+						Operator: "and",
+						Right: &InfixExpression{
+							Token:    Token{Type: ASSIGN, Literal: ASSIGN},
+							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "y"}, Value: "y"},
+							Operator: ASSIGN,
+							Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "2"}, Value: 2},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for i := range tests {
+		tc := tests[i]
+		p := NewParser(NewLexer(tc.input))
+		exp := p.parseSQLCond()
+
+		require.Equal(t, tc.expectedQuery, exp.String())
+		require.Equal(t, tc.expectedValue, exp)
+	}
+}
+
+func TestParser_parseSQLSelectStatement(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -28,28 +98,20 @@ func TestSSQLSelectStatements(t *testing.T) {
 		{input: "select *,id AS \"ID\" from `users`", expectedQuery: "SELECT *, id AS ID FROM `users`;"},
 		{input: "select name as nm from users", expectedQuery: "SELECT name AS nm FROM users;"},
 		{input: "Select a.id, b.date as dt from table as a, users as b", expectedQuery: "SELECT a.id, b.date AS dt FROM table AS a, users AS b;"},
+		{input: "select * from t WHERE id = 1", expectedQuery: "SELECT * FROM t WHERE (id = 1);"},
 	}
 
 	for _, tt := range tests {
 		p := NewParser(NewLexer(tt.input))
 
-		program := p.ParseProgram()
+		stmt := p.parseSQLSelectStatement()
 		checkParserErrors(t, p)
-
-		if len(program.Statements) != 1 {
-			t.Fatalf("program.Statements does not contain 1 statements. got=%d",
-				len(program.Statements))
-		}
-		stmt := program.Statements[0]
 
 		if !testSelectStatement(t, stmt, tt.expectedQuery) {
 			return
 		}
 
-		val, ok := stmt.(*SQLSelectStatement)
-		require.True(t, ok)
-
-		t.Log(val.String())
+		t.Log(stmt.String())
 		//nolint:gocritic
 		// if !testLiteralExpression(t, val, tt.expectedValue) {
 		//	return
@@ -150,8 +212,7 @@ func testIntegerLiteral(t *testing.T, il Expression, value int64) bool {
 }
 
 //nolint:unused
-func testInfixExpression(t *testing.T, exp Expression, left any,
-	operator string, right any) bool {
+func testInfixExpression(t *testing.T, exp Expression, left any, operator string, right any) bool {
 	opExp, ok := exp.(*InfixExpression)
 	if !ok {
 		t.Errorf("exp is not ast.OperatorExpression. got=%T(%s)", exp, exp)

@@ -97,6 +97,7 @@ type SQLSelectStatement struct {
 	Token            Token // the 'select' token
 	SQLSelectColumns []Expression
 	From             []Expression
+	Cond             []Expression
 }
 
 func (rs *SQLSelectStatement) statementNode()       {}
@@ -127,6 +128,19 @@ func (rs *SQLSelectStatement) String() string {
 
 			out.WriteString(" ")
 			out.WriteString(rs.From[i].String())
+		}
+	}
+
+	if rs.Cond != nil {
+		out.WriteString(" " + SQLWhere)
+
+		for i := range rs.Cond {
+			if i != 0 {
+				out.WriteString(",")
+			}
+
+			out.WriteString(" ")
+			out.WriteString(rs.Cond[i].String())
 		}
 	}
 
@@ -334,6 +348,15 @@ type SQLColumn struct {
 func (sl *SQLColumn) expressionNode()      {}
 func (sl *SQLColumn) TokenLiteral() string { return sl.Token.Literal }
 func (sl *SQLColumn) String() string       { return sl.Value }
+
+// SQLCondition wrapper for Expression.
+type SQLCondition struct {
+	Expression Expression
+}
+
+func (sl *SQLCondition) expressionNode()      {}
+func (sl *SQLCondition) TokenLiteral() string { return sl.Expression.TokenLiteral() }
+func (sl *SQLCondition) String() string       { return sl.Expression.String() }
 
 // ArrayLiteral todo.
 type ArrayLiteral struct {

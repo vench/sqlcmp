@@ -6,9 +6,11 @@ import (
 )
 
 const (
+	// operation priority
 	_ int = iota
 	LOWEST
 	EQUALS
+
 	// ==
 	LESSGREATER // > or <
 	SUM         // +
@@ -22,6 +24,7 @@ var (
 	precedences = map[TokenType]int{
 		EQ:          EQUALS,
 		NotEq:       EQUALS,
+		ASSIGN:      EQUALS,
 		LT:          LESSGREATER,
 		GT:          LESSGREATER,
 		PLUS:        SUM,
@@ -33,6 +36,9 @@ var (
 		BinaryOr:    SUM,
 		BinaryAnd:   SUM,
 		BinarySlash: SUM,
+
+		SQLOr:  LOWEST,
+		SQLAnd: LOWEST,
 	}
 
 	showEnteringLeaving = false
@@ -63,6 +69,16 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(INT, p.parseIntegerLiteral)
 	p.registerPrefix(BANG, p.parsePrefixExpression)
 	p.registerPrefix(MINUS, p.parsePrefixExpression)
+	p.registerPrefix(TRUE, p.parseBoolean)
+	p.registerPrefix(FALSE, p.parseBoolean)
+	p.registerPrefix(LPAREN, p.parseGroupedExpression)
+	p.registerPrefix(IF, p.parseIfExpression)
+	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
+	p.registerPrefix(STRING, p.parseStringLiteral)
+	p.registerPrefix(LBRACKET, p.parseArrayLiteral)
+	p.registerPrefix(SETS, p.parseSetsLiteral)
+	p.registerPrefix(LBRACE, p.parseSetsLiteralShort)
+	p.registerPrefix(HASH, p.parseHashLiteral)
 
 	p.infixParseFns = make(map[TokenType]infixParseFn)
 	p.registerInfix(PLUS, p.parseInfixExpression)
@@ -74,25 +90,17 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(ASTERISK, p.parseInfixExpression)
 	p.registerInfix(EQ, p.parseInfixExpression)
 	p.registerInfix(NotEq, p.parseInfixExpression)
+	p.registerInfix(ASSIGN, p.parseInfixExpression)
 	p.registerInfix(LT, p.parseInfixExpression)
 	p.registerInfix(GT, p.parseInfixExpression)
-
-	p.registerPrefix(TRUE, p.parseBoolean)
-	p.registerPrefix(FALSE, p.parseBoolean)
-
-	p.registerPrefix(LPAREN, p.parseGroupedExpression)
-	p.registerPrefix(IF, p.parseIfExpression)
-	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
 	p.registerInfix(LPAREN, p.parseCallExpression)
-	p.registerPrefix(STRING, p.parseStringLiteral)
+	p.registerInfix(LBRACKET, p.parseIndexExpression)
+	p.registerInfix(SQLAnd, p.parseInfixCondExpression)
+	p.registerInfix(SQLOr, p.parseInfixCondExpression)
+
 	//nolint:gocritic
 	// p.registerPrefix(STRING, p.parseSQLColumn)
-	p.registerPrefix(LBRACKET, p.parseArrayLiteral)
-	p.registerInfix(LBRACKET, p.parseIndexExpression)
 
-	p.registerPrefix(SETS, p.parseSetsLiteral)
-	p.registerPrefix(LBRACE, p.parseSetsLiteralShort)
-	p.registerPrefix(HASH, p.parseHashLiteral)
 	//nolint:gocritic
 	// p.registerPrefix(SQLSelect, p.parseSQLSelect)
 
@@ -147,12 +155,26 @@ func (p *Parser) parseLetStatement() *LetStatement {
 	return stmt
 }
 
-func (p *Parser) curTokenIs(t TokenType) bool {
-	return p.curToken.Type == t
+func (p *Parser) curTokenIs(t ...TokenType) bool {
+	for i := range t {
+		if p.curToken.Type == t[i] {
+			return true
+		}
+	}
+
+	return false
 }
-func (p *Parser) peekTokenIs(t TokenType) bool {
-	return p.peekToken.Type == t
+
+func (p *Parser) peekTokenIs(t ...TokenType) bool {
+	for i := range t {
+		if p.peekToken.Type == t[i] {
+			return true
+		}
+	}
+
+	return false
 }
+
 func (p *Parser) expectPeek(t TokenType) bool {
 	if p.peekTokenIs(t) {
 		p.nextToken()
@@ -181,7 +203,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	p.nextToken()
 
 	// parse columns
-	for !p.curTokenIs(SEMICOLON) && !p.curTokenIs(EOF) && !p.curTokenIs(SQLFrom) {
+	for !p.curTokenIs(SEMICOLON, EOF, SQLFrom) {
 		if p.curTokenIs(COMMA) {
 			p.nextToken() // next arg
 		}
@@ -193,7 +215,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 
 	// parse from
 	if !p.curTokenIs(SQLFrom) {
-		if !p.curTokenIs(SEMICOLON) && !p.curTokenIs(EOF) {
+		if !p.curTokenIs(SEMICOLON, EOF) {
 			p.peekError(SEMICOLON)
 		}
 
@@ -201,7 +223,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	}
 	p.nextToken()
 
-	for !p.curTokenIs(SEMICOLON) && !p.curTokenIs(EOF) && !p.curTokenIs(SQLWhere) && !p.curTokenIs(SQLGroup) {
+	for !p.curTokenIs(SEMICOLON, EOF, SQLWhere, SQLGroup, SQLOrder) {
 		if p.curTokenIs(COMMA) {
 			p.nextToken() // next arg
 		}
@@ -210,12 +232,58 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		}
 	}
 
+	// parse join
+	// parse where
+	if p.curTokenIs(SQLWhere) {
+		p.nextToken()
+
+		for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup) {
+			if cond := p.parseSQLCond(); cond != nil {
+				stmt.Cond = append(stmt.Cond, cond)
+			}
+			p.nextToken()
+		}
+	}
+
 	return stmt
+}
+
+func (p *Parser) parseSQLCond() Expression {
+	prefixes := p.prefixParseFns[p.curToken.Type]
+	if len(prefixes) == 0 {
+		p.noPrefixParseFnError(p.curToken.Type)
+
+		return nil
+	}
+
+	for _, prefix := range prefixes {
+		leftExp := prefix()
+
+		if leftExp == nil {
+			continue
+		}
+
+		// try parse infix
+		for !p.peekTokenIs(SEMICOLON, EOF) && LOWEST <= p.peekPrecedence() {
+			infix := p.infixParseFns[p.peekToken.Type]
+			if infix == nil {
+				return &SQLCondition{Expression: leftExp}
+			}
+
+			p.nextToken()
+			leftExp = infix(leftExp)
+		}
+
+		return &SQLCondition{Expression: leftExp}
+	}
+
+	return nil
 }
 
 func (p *Parser) Errors() []string {
 	return p.errors
 }
+
 func (p *Parser) peekError(t TokenType) {
 	msg := fmt.Sprintf("expected next token to be %s, got %s instead",
 		t, p.peekToken.Type)
@@ -316,9 +384,10 @@ func (p *Parser) peekPrecedence() int {
 
 	return LOWEST
 }
+
 func (p *Parser) curPrecedence() int {
-	if p, ok := precedences[p.curToken.Type]; ok {
-		return p
+	if operator, ok := precedences[p.curToken.Type]; ok {
+		return operator
 	}
 
 	return LOWEST
@@ -334,11 +403,9 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 	}
 	precedence := p.curPrecedence()
 	p.nextToken()
-	// if expression.Operator == "+" {
-	//	expression.Right = p.parseExpression(precedence - 1)
-	// } else {
+
 	expression.Right = p.parseExpression(precedence)
-	// }
+
 	return expression
 }
 
@@ -475,7 +542,7 @@ func (p *Parser) parseSQLColumn() Expression {
 	col := &SQLColumn{Token: p.curToken, Value: ""}
 	col.Value += p.curToken.Literal
 
-	for !p.peekTokenIs(COMMA) && !p.peekTokenIs(EOF) && !p.peekTokenIs(SQLFrom) && !p.peekTokenIs(SEMICOLON) {
+	for !p.peekTokenIs(COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder) {
 		p.nextToken()
 
 		if p.curTokenIs(SQLAs) { // TODO save AS different.
@@ -526,6 +593,16 @@ func (p *Parser) parseExpressionList(end TokenType) []Expression {
 		return nil
 	}
 	return list
+}
+
+func (p *Parser) parseInfixCondExpression(left Expression) Expression {
+	if exp := p.parseInfixExpression(left); exp != nil {
+		return &SQLCondition{
+			Expression: exp,
+		}
+	}
+
+	return nil
 }
 
 func (p *Parser) parseIndexExpression(left Expression) Expression {
