@@ -18,7 +18,7 @@ func TestParser_parseSQLCond(t *testing.T) {
 	}{
 		{input: "id=1", expectedQuery: "(id = 1)", expectedValue: &SQLCondition{
 			Expression: &InfixExpression{
-				Token:    Token{Type: ASSIGN, Literal: ASSIGN},
+				Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
 				Left:     &Identifier{Token: Token{Type: IDENT, Literal: "id"}, Value: "id"},
 				Operator: ASSIGN,
 				Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
@@ -45,19 +45,29 @@ func TestParser_parseSQLCond(t *testing.T) {
 			},
 		},
 		{
-			input: "x=1 and y=2", expectedQuery: "((x = 1) and (y = 2))", expectedValue: &SQLCondition{
+			input: "(name = 'test*')", expectedQuery: "(name = test*)", expectedValue: &SQLCondition{
+				Expression: &InfixExpression{
+					Token:    Token{Type: ASSIGN, Literal: "="},
+					Left:     &Identifier{Token: Token{Type: IDENT, Literal: "name"}, Value: "name"},
+					Operator: ASSIGN,
+					Right:    &StringLiteral{Token: Token{Type: STRING, Literal: "test*"}, Value: "test*"},
+				},
+			},
+		},
+		{
+			input: "x=1 and y=2", expectedQuery: "((x = 1) AND (y = 2))", expectedValue: &SQLCondition{
 				Expression: &SQLCondition{
 					Expression: &InfixExpression{
 						Token: Token{Type: SQLAnd, Literal: "and"},
 						Left: &InfixExpression{
-							Token:    Token{Type: ASSIGN, Literal: ASSIGN},
+							Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
 							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "x"}, Value: "x"},
 							Operator: ASSIGN,
 							Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
 						},
-						Operator: "and",
+						Operator: SQLAnd,
 						Right: &InfixExpression{
-							Token:    Token{Type: ASSIGN, Literal: ASSIGN},
+							Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
 							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "y"}, Value: "y"},
 							Operator: ASSIGN,
 							Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "2"}, Value: 2},
@@ -212,7 +222,7 @@ func testIntegerLiteral(t *testing.T, il Expression, value int64) bool {
 }
 
 //nolint:unused
-func testInfixExpression(t *testing.T, exp Expression, left any, operator string, right any) bool {
+func testInfixExpression(t *testing.T, exp Expression, left any, operator TokenType, right any) bool {
 	opExp, ok := exp.(*InfixExpression)
 	if !ok {
 		t.Errorf("exp is not ast.OperatorExpression. got=%T(%s)", exp, exp)

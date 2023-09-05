@@ -105,7 +105,7 @@ func (rs *SQLSelectStatement) TokenLiteral() string { return rs.Token.Literal }
 
 func (rs *SQLSelectStatement) String() string {
 	var out bytes.Buffer
-	out.WriteString(SQLSelect)
+	out.WriteString(SQLSelect.String())
 
 	if rs.SQLSelectColumns != nil {
 		for i := range rs.SQLSelectColumns {
@@ -119,7 +119,7 @@ func (rs *SQLSelectStatement) String() string {
 	}
 
 	if rs.From != nil {
-		out.WriteString(" " + SQLFrom)
+		out.WriteString(" " + SQLFrom.String())
 
 		for i := range rs.From {
 			if i != 0 {
@@ -132,7 +132,7 @@ func (rs *SQLSelectStatement) String() string {
 	}
 
 	if rs.Cond != nil {
-		out.WriteString(" " + SQLWhere)
+		out.WriteString(" " + SQLWhere.String())
 
 		for i := range rs.Cond {
 			if i != 0 {
@@ -198,7 +198,7 @@ func (pe *PrefixExpression) String() string {
 type InfixExpression struct {
 	Token    Token // The operator token, e.g. +
 	Left     Expression
-	Operator string
+	Operator TokenType
 	Right    Expression
 }
 
@@ -209,7 +209,7 @@ func (oe *InfixExpression) String() string {
 
 	out.WriteString("(")
 	out.WriteString(oe.Left.String())
-	out.WriteString(" " + oe.Operator + " ")
+	out.WriteString(" " + oe.Operator.String() + " ")
 	out.WriteString(oe.Right.String())
 	out.WriteString(")")
 	return out.String()
@@ -339,15 +339,20 @@ func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return sl.Token.Literal }
 
 // SQLColumn todo.
-// TODO: maybe chnage as SQL common exp.
 type SQLColumn struct {
 	Token Token
 	Value string
+	Alias string
 }
 
 func (sl *SQLColumn) expressionNode()      {}
 func (sl *SQLColumn) TokenLiteral() string { return sl.Token.Literal }
-func (sl *SQLColumn) String() string       { return sl.Value }
+func (sl *SQLColumn) String() string {
+	if sl.Alias != "" {
+		return sl.Value + " AS " + sl.Alias
+	}
+	return sl.Value
+}
 
 // SQLCondition wrapper for Expression.
 type SQLCondition struct {
@@ -368,7 +373,7 @@ func (al *ArrayLiteral) expressionNode()      {}
 func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
 func (al *ArrayLiteral) String() string {
 	var out bytes.Buffer
-	elements := []string{}
+	var elements []string
 	for _, el := range al.Elements {
 		elements = append(elements, el.String())
 	}

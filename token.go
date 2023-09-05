@@ -3,67 +3,76 @@ package sqlcmp
 import "strings"
 
 const (
-	ILLEGAL = "ILLEGAL"
-	EOF     = "EOF"
+	ILLEGAL TokenType = "ILLEGAL"
+	EOF     TokenType = "EOF"
 
-	// Identifiers + literals
-	IDENT = "IDENT" // add, foobar, x, y, ...
-	INT   = "INT"
-	// 1343456
+	// List of Identifiers.
 
-	// Delimiters
-	COMMA     = ","
-	SEMICOLON = ";"
-	LPAREN    = "("
-	RPAREN    = ")"
-	LBRACE    = "{"
-	RBRACE    = "}"
-	// Keywords
-	FUNCTION = "FUNCTION"
-	LET      = "LET"
-	TRUE     = "TRUE"
-	FALSE    = "FALSE"
-	IF       = "IF"
-	ELSE     = "ELSE"
-	RETURN   = "RETURN"
-	SETS     = "SET"
-	HASH     = "HASH"
-	// SQL
-	SQLSelect = "SELECT"
-	SQLFrom   = "FROM"
-	SQLWhere  = "WHERE"
-	SQLAnd    = "AND"
-	SQLOr     = "OR"
-	SQLLike   = "LIKE"
-	SQLOrder  = "ORDER"
-	SQLGroup  = "GROUP"
-	SQLBy     = "BY"
-	SQLAs     = "AS"
+	IDENT TokenType = "IDENT" // default TokenType like: add, foobar, x, y, ...
+	INT   TokenType = "INT"
 
-	// Operators
-	ASSIGN      = "="
-	PLUS        = "+"
-	MINUS       = "-"
-	BANG        = "!"
-	ASTERISK    = "*"
-	SLASH       = "/"
-	BinarySlash = "\\"
-	LT          = "<"
-	GT          = ">"
-	EQ          = "=="
-	NotEq       = "!="
-	STRING      = "STRING"
-	LBRACKET    = "["
-	RBRACKET    = "]"
-	COLON       = ":"
-	BinaryOr    = "|"
-	BinaryAnd   = "&"
+	// List of delimiters.
+
+	COMMA     TokenType = ","
+	SEMICOLON TokenType = ";"
+	LPAREN    TokenType = "("
+	RPAREN    TokenType = ")"
+	LBRACE    TokenType = "{"
+	RBRACE    TokenType = "}"
+
+	// List of keywords.
+
+	FUNCTION TokenType = "FUNCTION"
+	LET      TokenType = "LET"
+	TRUE     TokenType = "TRUE"
+	FALSE    TokenType = "FALSE"
+	IF       TokenType = "IF"
+	ELSE     TokenType = "ELSE"
+	RETURN   TokenType = "RETURN"
+	SETS     TokenType = "SET"
+	HASH     TokenType = "HASH"
+
+	// List of SQL allow tokens.
+
+	SQLSelect TokenType = "SELECT"
+	SQLFrom   TokenType = "FROM"
+	SQLWhere  TokenType = "WHERE"
+	SQLAnd    TokenType = "AND"
+	SQLOr     TokenType = "OR"
+	SQLLike   TokenType = "LIKE"
+	SQLOrder  TokenType = "ORDER"
+	SQLGroup  TokenType = "GROUP"
+	SQLBy     TokenType = "BY"
+	SQLAs     TokenType = "AS"
+
+	// List of allow operators.
+
+	ASSIGN      TokenType = "="
+	PLUS        TokenType = "+"
+	MINUS       TokenType = "-"
+	BANG        TokenType = "!"
+	ASTERISK    TokenType = "*"
+	SLASH       TokenType = "/"
+	BinarySlash TokenType = "\\"
+	LT          TokenType = "<"
+	GT          TokenType = ">"
+	EQ          TokenType = "=="
+	NotEq       TokenType = "!="
+	STRING      TokenType = "STRING"
+	LBRACKET    TokenType = "["
+	RBRACKET    TokenType = "]"
+	COLON       TokenType = ":"
+	BinaryOr    TokenType = "|"
+	BinaryAnd   TokenType = "&"
 )
 
 type TokenType string
 
-// Type - is allow type
-// Literal - parse string in source code belong current Type
+func (t TokenType) String() string {
+	return string(t)
+}
+
+// Token todo.
 type Token struct {
 	Type    TokenType
 	Literal string
@@ -94,6 +103,7 @@ var keywords = map[string]TokenType{
 	"as":     SQLAs,
 }
 
+// LookupIdent converts string to TokenType.
 func LookupIdent(ident string) TokenType {
 	if tok, ok := keywords[ident]; ok {
 		return tok

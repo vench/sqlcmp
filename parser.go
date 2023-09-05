@@ -398,7 +398,7 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 
 	expression := &InfixExpression{
 		Token:    p.curToken,
-		Operator: p.curToken.Literal,
+		Operator: p.curToken.Type,
 		Left:     left,
 	}
 	precedence := p.curPrecedence()
@@ -516,7 +516,7 @@ func (p *Parser) parseCallExpression(function Expression) Expression {
 
 //nolint:unused
 func (p *Parser) parseCallArguments() []Expression {
-	args := []Expression{}
+	var args []Expression
 	if p.peekTokenIs(RPAREN) {
 		p.nextToken()
 		return args
@@ -541,12 +541,18 @@ func (p *Parser) parseStringLiteral() Expression {
 func (p *Parser) parseSQLColumn() Expression {
 	col := &SQLColumn{Token: p.curToken, Value: ""}
 	col.Value += p.curToken.Literal
+	var alias bool
 
 	for !p.peekTokenIs(COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder) {
 		p.nextToken()
 
-		if p.curTokenIs(SQLAs) { // TODO save AS different.
-			col.Value += " AS "
+		if p.curTokenIs(SQLAs) {
+			alias = true
+			continue
+		}
+
+		if alias {
+			col.Alias += p.curToken.Literal
 		} else {
 			col.Value += p.curToken.Literal
 		}
