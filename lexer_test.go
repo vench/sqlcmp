@@ -216,7 +216,7 @@ set{1, 2, 4} & set{1, 2, 4}
 		{SEMICOLON, ";"},
 
 		{INT, "10"},
-		{NOT_EQ, "!="},
+		{NotEq, "!="},
 		{INT, "9"},
 		{SEMICOLON, ";"},
 
@@ -253,7 +253,7 @@ set{1, 2, 4} & set{1, 2, 4}
 		{COMMA, ","},
 		{INT, "4"},
 		{RBRACE, "}"},
-		{BINARY_OR, "|"},
+		{BinaryOr, "|"},
 		{SETS, "set"},
 		{LBRACE, "{"},
 		{INT, "1"},
@@ -271,7 +271,7 @@ set{1, 2, 4} & set{1, 2, 4}
 		{COMMA, ","},
 		{INT, "4"},
 		{RBRACE, "}"},
-		{BINARY_AND, "&"},
+		{BinaryAnd, "&"},
 		{SETS, "set"},
 		{LBRACE, "{"},
 		{INT, "1"},

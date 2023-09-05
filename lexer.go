@@ -42,16 +42,16 @@ func (l *Lexer) NextToken() Token {
 	case '-':
 		tok = newToken(MINUS, l.ch)
 	case '|':
-		tok = newToken(BINARY_OR, l.ch)
+		tok = newToken(BinaryOr, l.ch)
 	case '\\':
-		tok = newToken(BINARY_SLASH, l.ch)
+		tok = newToken(BinarySlash, l.ch)
 	case '&':
-		tok = newToken(BINARY_AND, l.ch)
+		tok = newToken(BinaryAnd, l.ch)
 	case '!':
 		if l.peekChar() == '=' {
 			ch := l.ch
 			l.readChar()
-			tok = Token{Type: NOT_EQ, Literal: string(ch) + string(l.ch)}
+			tok = Token{Type: NotEq, Literal: string(ch) + string(l.ch)}
 		} else {
 			tok = newToken(BANG, l.ch)
 		}

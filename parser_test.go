@@ -14,7 +14,7 @@ func TestSSQLSelectStatements(t *testing.T) {
 	tests := []struct {
 		input         string
 		expectedQuery string
-		expectedValue interface{}
+		expectedValue any
 	}{
 		{input: "Select;", expectedQuery: "SELECT;"},
 		{input: "Select now();", expectedQuery: "SELECT now();"},
@@ -50,9 +50,10 @@ func TestSSQLSelectStatements(t *testing.T) {
 		require.True(t, ok)
 
 		t.Log(val.String())
-		//if !testLiteralExpression(t, val, tt.expectedValue) {
+		//nolint:gocritic
+		// if !testLiteralExpression(t, val, tt.expectedValue) {
 		//	return
-		//}
+		// }
 	}
 }
 
@@ -62,7 +63,7 @@ func TestLetStatements(t *testing.T) {
 	tests := []struct {
 		input              string
 		expectedIdentifier string
-		expectedValue      interface{}
+		expectedValue      any
 	}{
 		{"let x = 5;", "x", 5},
 		{"let y = true;", "y", true},
@@ -93,7 +94,7 @@ func TestLetStatements(t *testing.T) {
 func testLiteralExpression(
 	t *testing.T,
 	exp Expression,
-	expected interface{},
+	expected any,
 ) bool {
 	switch v := expected.(type) {
 	case int:
@@ -148,8 +149,9 @@ func testIntegerLiteral(t *testing.T, il Expression, value int64) bool {
 	return true
 }
 
-func testInfixExpression(t *testing.T, exp Expression, left interface{},
-	operator string, right interface{}) bool {
+//nolint:unused
+func testInfixExpression(t *testing.T, exp Expression, left any,
+	operator string, right any) bool {
 	opExp, ok := exp.(*InfixExpression)
 	if !ok {
 		t.Errorf("exp is not ast.OperatorExpression. got=%T(%s)", exp, exp)

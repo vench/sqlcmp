@@ -20,19 +20,19 @@ const (
 
 var (
 	precedences = map[TokenType]int{
-		EQ:           EQUALS,
-		NOT_EQ:       EQUALS,
-		LT:           LESSGREATER,
-		GT:           LESSGREATER,
-		PLUS:         SUM,
-		MINUS:        SUM,
-		SLASH:        PRODUCT,
-		ASTERISK:     PRODUCT,
-		LPAREN:       CALL,
-		LBRACKET:     INDEX,
-		BINARY_OR:    SUM,
-		BINARY_AND:   SUM,
-		BINARY_SLASH: SUM,
+		EQ:          EQUALS,
+		NotEq:       EQUALS,
+		LT:          LESSGREATER,
+		GT:          LESSGREATER,
+		PLUS:        SUM,
+		MINUS:       SUM,
+		SLASH:       PRODUCT,
+		ASTERISK:    PRODUCT,
+		LPAREN:      CALL,
+		LBRACKET:    INDEX,
+		BinaryOr:    SUM,
+		BinaryAnd:   SUM,
+		BinarySlash: SUM,
 	}
 
 	showEnteringLeaving = false
@@ -66,14 +66,14 @@ func NewParser(l *Lexer) *Parser {
 
 	p.infixParseFns = make(map[TokenType]infixParseFn)
 	p.registerInfix(PLUS, p.parseInfixExpression)
-	p.registerInfix(BINARY_OR, p.parseInfixExpression)
-	p.registerInfix(BINARY_AND, p.parseInfixExpression)
+	p.registerInfix(BinaryOr, p.parseInfixExpression)
+	p.registerInfix(BinaryAnd, p.parseInfixExpression)
 	p.registerInfix(MINUS, p.parseInfixExpression)
 	p.registerInfix(SLASH, p.parseInfixExpression)
-	p.registerInfix(BINARY_SLASH, p.parseInfixExpression)
+	p.registerInfix(BinarySlash, p.parseInfixExpression)
 	p.registerInfix(ASTERISK, p.parseInfixExpression)
 	p.registerInfix(EQ, p.parseInfixExpression)
-	p.registerInfix(NOT_EQ, p.parseInfixExpression)
+	p.registerInfix(NotEq, p.parseInfixExpression)
 	p.registerInfix(LT, p.parseInfixExpression)
 	p.registerInfix(GT, p.parseInfixExpression)
 
@@ -85,15 +85,16 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
 	p.registerInfix(LPAREN, p.parseCallExpression)
 	p.registerPrefix(STRING, p.parseStringLiteral)
-	//p.registerPrefix(STRING, p.parseSQLColumn)
+	//nolint:gocritic
+	// p.registerPrefix(STRING, p.parseSQLColumn)
 	p.registerPrefix(LBRACKET, p.parseArrayLiteral)
 	p.registerInfix(LBRACKET, p.parseIndexExpression)
 
 	p.registerPrefix(SETS, p.parseSetsLiteral)
 	p.registerPrefix(LBRACE, p.parseSetsLiteralShort)
 	p.registerPrefix(HASH, p.parseHashLiteral)
-
-	//p.registerPrefix(SQLSelect, p.parseSQLSelect)
+	//nolint:gocritic
+	// p.registerPrefix(SQLSelect, p.parseSQLSelect)
 
 	return p
 }
@@ -107,8 +108,7 @@ func (p *Parser) ParseProgram() *Program {
 	program := &Program{}
 	program.Statements = []Statement{}
 	for p.curToken.Type != EOF {
-		stmt := p.parseStatement()
-		if stmt != nil {
+		if stmt := p.parseStatement(); stmt != nil {
 			program.Statements = append(program.Statements, stmt)
 		}
 
@@ -334,11 +334,11 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 	}
 	precedence := p.curPrecedence()
 	p.nextToken()
-	//if expression.Operator == "+" {
+	// if expression.Operator == "+" {
 	//	expression.Right = p.parseExpression(precedence - 1)
-	//} else {
+	// } else {
 	expression.Right = p.parseExpression(precedence)
-	//}
+	// }
 	return expression
 }
 
@@ -386,8 +386,7 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 	block.Statements = []Statement{}
 	p.nextToken()
 	for !p.curTokenIs(RBRACE) && !p.curTokenIs(EOF) {
-		stmt := p.parseStatement()
-		if stmt != nil {
+		if stmt := p.parseStatement(); stmt != nil {
 			block.Statements = append(block.Statements, stmt)
 		}
 		p.nextToken()
@@ -408,6 +407,7 @@ func (p *Parser) parseFunctionLiteral() Expression {
 	return lit
 }
 
+//nolint:unused
 func (p *Parser) parseSQLSelect() Expression {
 	lit := &SelectLiteral{Token: p.curToken}
 	p.nextToken()
@@ -447,6 +447,7 @@ func (p *Parser) parseCallExpression(function Expression) Expression {
 	return exp
 }
 
+//nolint:unused
 func (p *Parser) parseCallArguments() []Expression {
 	args := []Expression{}
 	if p.peekTokenIs(RPAREN) {
