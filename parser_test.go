@@ -88,6 +88,51 @@ func TestParser_parseSQLCond(t *testing.T) {
 	}
 }
 
+func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input         string
+		expectedQuery string
+	}{}
+
+	for _, tt := range tests {
+		p := NewParser(NewLexer(tt.input))
+
+		stmt := p.parseSQLSelectStatement()
+		checkParserErrors(t, p)
+
+		if !testSelectStatement(t, stmt, tt.expectedQuery) {
+			return
+		}
+	}
+}
+
+func TestParser_parseSQLSelectStatementWithJoin(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input         string
+		expectedQuery string
+	}{
+		{
+			input:         "select * from t1 inner join t2 ON (id= pid) WHERE id > 100 order by date",
+			expectedQuery: "SELECT * FROM t1 INNER JOIN t2 ON (id = pid) WHERE (id > 100) ORDER BY date;",
+		},
+	}
+
+	for _, tt := range tests {
+		p := NewParser(NewLexer(tt.input))
+
+		stmt := p.parseSQLSelectStatement()
+		checkParserErrors(t, p)
+
+		if !testSelectStatement(t, stmt, tt.expectedQuery) {
+			return
+		}
+	}
+}
+
 func TestParser_parseSQLSelectStatement(t *testing.T) {
 	t.Parallel()
 

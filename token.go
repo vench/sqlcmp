@@ -19,6 +19,7 @@ const (
 	RPAREN    TokenType = ")"
 	LBRACE    TokenType = "{"
 	RBRACE    TokenType = "}"
+	DOT       TokenType = "."
 
 	// List of keywords.
 
@@ -51,6 +52,10 @@ const (
 	SQLInner  TokenType = "INNER"
 	SQLLeft   TokenType = "LEFT"
 	SQLRight  TokenType = "RIGHT"
+	SQLOuter  TokenType = "OUTER"
+	SQLCross  TokenType = "CROSS"
+	SQLOn     TokenType = "ON"
+	SQLNot    TokenType = "NOT"
 
 	// List of allow operators.
 
@@ -98,6 +103,7 @@ var keywords = map[string]TokenType{
 	"HASH":   HASH,
 	"hash":   HASH,
 	"H":      HASH,
+
 	"select": SQLSelect,
 	"from":   SQLFrom,
 	"where":  SQLWhere,
@@ -115,6 +121,10 @@ var keywords = map[string]TokenType{
 	"left":   SQLLeft,
 	"right":  SQLRight,
 	"inner":  SQLInner,
+	"cross":  SQLCross,
+	"outer":  SQLOuter,
+	"on":     SQLOn,
+	"not":    SQLNot,
 }
 
 // LookupIdent converts string to TokenType.

@@ -97,6 +97,7 @@ type SQLSelectStatement struct {
 	Token            Token // the 'select' token
 	SQLSelectColumns []Expression
 	From             []Expression
+	Join             []Expression
 	Cond             []Expression
 	Order            []Expression
 	Group            []Expression
@@ -133,6 +134,13 @@ func (rs *SQLSelectStatement) String() string {
 
 			out.WriteString(" ")
 			out.WriteString(rs.From[i].String())
+		}
+	}
+
+	if rs.Join != nil {
+		for i := range rs.Join {
+			out.WriteString(" ")
+			out.WriteString(rs.Join[i].String())
 		}
 	}
 
@@ -408,6 +416,33 @@ func (sl *SQLOrderExp) String() string {
 	}
 
 	return sl.Value
+}
+
+// SQLJoinExp todo.
+type SQLJoinExp struct {
+	Token Token
+	Type  TokenType
+	Table Expression
+	Cond  []Expression
+}
+
+func (sl *SQLJoinExp) expressionNode()      {}
+func (sl *SQLJoinExp) TokenLiteral() string { return sl.Token.Literal }
+func (sl *SQLJoinExp) String() string {
+	str := ""
+	if sl.Type.String() != "" {
+		str = sl.Type.String() + " "
+	}
+
+	str += SQLJoin.String() + " " + sl.Table.String()
+	if sl.Cond != nil {
+		str += " ON "
+		for i := range sl.Cond {
+			str += sl.Cond[i].String()
+		}
+	}
+
+	return str
 }
 
 // SQLCondition wrapper for Expression.

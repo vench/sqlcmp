@@ -198,6 +198,7 @@ func (p *Parser) parseReturnStatement() *ReturnStatement {
 	return stmt
 }
 
+//nolint:funlen,gocyclo
 func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	stmt := &SQLSelectStatement{Token: p.curToken}
 	p.nextToken()
@@ -221,11 +222,13 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 
 		return stmt
 	}
+
+	// skip from token
 	p.nextToken()
 
-	for !p.curTokenIs(SEMICOLON, EOF, SQLWhere, SQLGroup, SQLOrder, SQLLimit) {
+	for !p.curTokenIs(SEMICOLON, EOF, SQLWhere, SQLGroup, SQLOrder, SQLLimit, SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin) {
 		if p.curTokenIs(COMMA) {
-			p.nextToken() // next arg
+			p.nextToken() // next table
 		}
 		if v := p.parseSQLColumn(); v != nil {
 			stmt.From = append(stmt.From, v)
@@ -233,11 +236,52 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	}
 
 	// parse join
+	if p.curTokenIs(SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin) {
+		exp := &SQLJoinExp{Token: Token{Type: SQLJoin}}
+		for !p.curTokenIs(SQLJoin) { // get type
+			exp.Type = p.curToken.Type
+			p.nextToken()
+		}
+
+		if p.curTokenIs(SQLOuter) { // skip outer
+			p.nextToken()
+		}
+
+		if !p.curTokenIs(SQLJoin) {
+			p.peekError(SQLJoin)
+
+			return nil
+		}
+		// skip join token
+		p.nextToken()
+
+		// get source
+		if v := p.parseSQLColumn(); v != nil {
+			exp.Table = v
+		} else {
+			p.peekError(SQLFrom) // TODO: special case error
+			return nil
+		}
+
+		if p.curTokenIs(SQLOn) { // parse cond
+			p.nextToken()
+
+			for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup, SQLLimit, SQLWhere, RPAREN) {
+				if cond := p.parseSQLCondition(); cond != nil {
+					exp.Cond = append(exp.Cond, cond)
+				}
+				p.nextToken()
+			}
+		}
+
+		stmt.Join = append(stmt.Join, exp)
+	}
+
 	// parse where
 	if p.curTokenIs(SQLWhere) {
 		p.nextToken()
 
-		for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup, SQLLimit) {
+		for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup, SQLLimit, RPAREN) {
 			if cond := p.parseSQLCondition(); cond != nil {
 				stmt.Cond = append(stmt.Cond, cond)
 			}
@@ -310,7 +354,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 func (p *Parser) parseSQLCondition() Expression {
 	prefixes := p.prefixParseFns[p.curToken.Type]
 	if len(prefixes) == 0 {
-		p.noPrefixParseFnError(p.curToken.Type)
+		p.noPrefixParseFnError(p.curToken)
 
 		return nil
 	}
@@ -373,7 +417,7 @@ func (p *Parser) parseExpression(precedence int) Expression {
 
 	prefixs := p.prefixParseFns[p.curToken.Type]
 	if len(prefixs) == 0 {
-		p.noPrefixParseFnError(p.curToken.Type)
+		p.noPrefixParseFnError(p.curToken)
 
 		return nil
 	}
@@ -420,8 +464,8 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	return lit
 }
 
-func (p *Parser) noPrefixParseFnError(t TokenType) {
-	msg := fmt.Sprintf("no prefix parse function for %s found", t)
+func (p *Parser) noPrefixParseFnError(t Token) {
+	msg := fmt.Sprintf("no prefix parse function for %s found, literal: %s", t.Type.String(), t.Literal)
 	p.errors = append(p.errors, msg)
 }
 
@@ -593,7 +637,9 @@ func (p *Parser) parseSQLColumn() Expression {
 	col.Value += p.curToken.Literal
 	var alias bool
 
-	for !p.peekTokenIs(COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder, SQLLimit) {
+	for !p.peekTokenIs(
+		COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder, SQLLimit, SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin, SQLOn,
+	) {
 		p.nextToken()
 
 		if p.curTokenIs(SQLAs) {
