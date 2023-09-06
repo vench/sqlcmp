@@ -94,7 +94,6 @@ func TestParser_parseSQLSelectStatement(t *testing.T) {
 	tests := []struct {
 		input         string
 		expectedQuery string
-		expectedValue any
 	}{
 		{input: "Select;", expectedQuery: "SELECT;"},
 		{input: "Select now();", expectedQuery: "SELECT now();"},
@@ -109,6 +108,11 @@ func TestParser_parseSQLSelectStatement(t *testing.T) {
 		{input: "select name as nm from users", expectedQuery: "SELECT name AS nm FROM users;"},
 		{input: "Select a.id, b.date as dt from table as a, users as b", expectedQuery: "SELECT a.id, b.date AS dt FROM table AS a, users AS b;"},
 		{input: "select * from t WHERE id = 1", expectedQuery: "SELECT * FROM t WHERE (id = 1);"},
+		{
+			input:         "select * from t WHERE id = 1 and date > '2023-01-01' GROUP BY name, id ORDER BY name, id DESC",
+			expectedQuery: "SELECT * FROM t WHERE ((id = 1) AND (date > 2023-01-01)) GROUP BY name, id ORDER BY name, id DESC;",
+		},
+		// {input: "select (select max(price) from orders) as max_price, name from users", expectedQuery: ""},
 	}
 
 	for _, tt := range tests {
@@ -120,12 +124,6 @@ func TestParser_parseSQLSelectStatement(t *testing.T) {
 		if !testSelectStatement(t, stmt, tt.expectedQuery) {
 			return
 		}
-
-		t.Log(stmt.String())
-		//nolint:gocritic
-		// if !testLiteralExpression(t, val, tt.expectedValue) {
-		//	return
-		// }
 	}
 }
 

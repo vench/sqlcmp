@@ -223,7 +223,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	}
 	p.nextToken()
 
-	for !p.curTokenIs(SEMICOLON, EOF, SQLWhere, SQLGroup, SQLOrder) {
+	for !p.curTokenIs(SEMICOLON, EOF, SQLWhere, SQLGroup, SQLOrder, SQLLimit) {
 		if p.curTokenIs(COMMA) {
 			p.nextToken() // next arg
 		}
@@ -237,13 +237,52 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	if p.curTokenIs(SQLWhere) {
 		p.nextToken()
 
-		for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup) {
+		for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup, SQLLimit) {
 			if cond := p.parseSQLCond(); cond != nil {
 				stmt.Cond = append(stmt.Cond, cond)
 			}
 			p.nextToken()
 		}
 	}
+
+	if p.curTokenIs(SQLGroup) {
+		if !p.peekTokenIs(SQLBy) {
+			p.peekError(SQLBy)
+			return nil
+		}
+
+		p.nextToken()
+		p.nextToken()
+
+		for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLLimit) {
+			if p.curTokenIs(COMMA) {
+				p.nextToken() // next arg
+			}
+			if v := p.parseSQLColumn(); v != nil {
+				stmt.Group = append(stmt.Group, v)
+			}
+		}
+	}
+
+	if p.curTokenIs(SQLOrder) {
+		if !p.peekTokenIs(SQLBy) {
+			p.peekError(SQLBy)
+			return nil
+		}
+		p.nextToken()
+		p.nextToken()
+
+		for !p.curTokenIs(SEMICOLON, EOF, SQLLimit) {
+			if p.curTokenIs(COMMA) {
+				p.nextToken() // next arg
+			}
+			if v := p.parseSQLOrder(); v != nil {
+				stmt.Order = append(stmt.Order, v)
+			}
+		}
+	}
+
+	// todo limit
 
 	return stmt
 }
@@ -374,12 +413,13 @@ func (p *Parser) parsePrefixExpression() Expression {
 	}
 	p.nextToken()
 	expression.Right = p.parseExpression(PREFIX)
+
 	return expression
 }
 
 func (p *Parser) peekPrecedence() int {
-	if p, ok := precedences[p.peekToken.Type]; ok {
-		return p
+	if v, ok := precedences[p.peekToken.Type]; ok {
+		return v
 	}
 
 	return LOWEST
@@ -543,7 +583,7 @@ func (p *Parser) parseSQLColumn() Expression {
 	col.Value += p.curToken.Literal
 	var alias bool
 
-	for !p.peekTokenIs(COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder) {
+	for !p.peekTokenIs(COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder, SQLLimit) {
 		p.nextToken()
 
 		if p.curTokenIs(SQLAs) {
@@ -556,6 +596,26 @@ func (p *Parser) parseSQLColumn() Expression {
 		} else {
 			col.Value += p.curToken.Literal
 		}
+	}
+
+	p.nextToken()
+
+	return col
+}
+
+func (p *Parser) parseSQLOrder() Expression {
+	col := &SQLOrderExp{Token: p.curToken, Value: ""}
+	col.Value += p.curToken.Literal
+
+	for !p.peekTokenIs(COMMA, EOF, SEMICOLON, SQLLimit) {
+		p.nextToken()
+
+		if p.curTokenIs(SQLAsc, SQLDesc) {
+			col.Direction = p.curToken
+			break
+		}
+
+		col.Value += p.curToken.Literal
 	}
 
 	p.nextToken()

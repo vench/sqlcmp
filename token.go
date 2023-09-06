@@ -44,6 +44,9 @@ const (
 	SQLGroup  TokenType = "GROUP"
 	SQLBy     TokenType = "BY"
 	SQLAs     TokenType = "AS"
+	SQLDesc   TokenType = "DESC"
+	SQLAsc    TokenType = "ASC"
+	SQLLimit  TokenType = "LIMIT"
 
 	// List of allow operators.
 
@@ -101,6 +104,9 @@ var keywords = map[string]TokenType{
 	"group":  SQLGroup,
 	"by":     SQLBy,
 	"as":     SQLAs,
+	"desc":   SQLDesc,
+	"asc":    SQLAsc,
+	"limit":  SQLLimit,
 }
 
 // LookupIdent converts string to TokenType.

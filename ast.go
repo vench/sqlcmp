@@ -98,6 +98,8 @@ type SQLSelectStatement struct {
 	SQLSelectColumns []Expression
 	From             []Expression
 	Cond             []Expression
+	Order            []Expression
+	Group            []Expression
 }
 
 func (rs *SQLSelectStatement) statementNode()       {}
@@ -141,6 +143,32 @@ func (rs *SQLSelectStatement) String() string {
 
 			out.WriteString(" ")
 			out.WriteString(rs.Cond[i].String())
+		}
+	}
+
+	if rs.Group != nil {
+		out.WriteString(" " + SQLGroup.String() + " " + SQLBy.String())
+
+		for i := range rs.Group {
+			if i != 0 {
+				out.WriteString(",")
+			}
+
+			out.WriteString(" ")
+			out.WriteString(rs.Group[i].String())
+		}
+	}
+
+	if rs.Order != nil {
+		out.WriteString(" " + SQLOrder.String() + " " + SQLBy.String())
+
+		for i := range rs.Order {
+			if i != 0 {
+				out.WriteString(",")
+			}
+
+			out.WriteString(" ")
+			out.WriteString(rs.Order[i].String())
 		}
 	}
 
@@ -351,6 +379,23 @@ func (sl *SQLColumn) String() string {
 	if sl.Alias != "" {
 		return sl.Value + " AS " + sl.Alias
 	}
+	return sl.Value
+}
+
+// SQLOrderExp todo.
+type SQLOrderExp struct {
+	Token     Token
+	Value     string
+	Direction Token
+}
+
+func (sl *SQLOrderExp) expressionNode()      {}
+func (sl *SQLOrderExp) TokenLiteral() string { return sl.Token.Literal }
+func (sl *SQLOrderExp) String() string {
+	if sl.Direction.Literal != "" {
+		return sl.Value + " " + sl.Direction.Type.String()
+	}
+
 	return sl.Value
 }
 
