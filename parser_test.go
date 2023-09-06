@@ -81,7 +81,7 @@ func TestParser_parseSQLCond(t *testing.T) {
 	for i := range tests {
 		tc := tests[i]
 		p := NewParser(NewLexer(tc.input))
-		exp := p.parseSQLCond()
+		exp := p.parseSQLCondition()
 
 		require.Equal(t, tc.expectedQuery, exp.String())
 		require.Equal(t, tc.expectedValue, exp)
@@ -112,6 +112,8 @@ func TestParser_parseSQLSelectStatement(t *testing.T) {
 			input:         "select * from t WHERE id = 1 and date > '2023-01-01' GROUP BY name, id ORDER BY name, id DESC",
 			expectedQuery: "SELECT * FROM t WHERE ((id = 1) AND (date > 2023-01-01)) GROUP BY name, id ORDER BY name, id DESC;",
 		},
+		{input: "select * from t WHERE id = 1 LIMIT 10", expectedQuery: "SELECT * FROM t WHERE (id = 1) LIMIT 10;"},
+		{input: "select * from t WHERE id = 1 LIMIT 5, 10", expectedQuery: "SELECT * FROM t WHERE (id = 1) LIMIT 5, 10;"},
 		// {input: "select (select max(price) from orders) as max_price, name from users", expectedQuery: ""},
 	}
 

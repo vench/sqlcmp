@@ -100,6 +100,9 @@ type SQLSelectStatement struct {
 	Cond             []Expression
 	Order            []Expression
 	Group            []Expression
+
+	Offset Expression
+	Limit  Expression
 }
 
 func (rs *SQLSelectStatement) statementNode()       {}
@@ -169,6 +172,14 @@ func (rs *SQLSelectStatement) String() string {
 
 			out.WriteString(" ")
 			out.WriteString(rs.Order[i].String())
+		}
+	}
+
+	if rs.Limit != nil {
+		if rs.Offset != nil {
+			out.WriteString(" " + SQLLimit.String() + " " + rs.Offset.String() + ", " + rs.Limit.String())
+		} else {
+			out.WriteString(" " + SQLLimit.String() + " " + rs.Limit.String())
 		}
 	}
 

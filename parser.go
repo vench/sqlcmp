@@ -238,7 +238,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		p.nextToken()
 
 		for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup, SQLLimit) {
-			if cond := p.parseSQLCond(); cond != nil {
+			if cond := p.parseSQLCondition(); cond != nil {
 				stmt.Cond = append(stmt.Cond, cond)
 			}
 			p.nextToken()
@@ -282,12 +282,32 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		}
 	}
 
-	// todo limit
+	if p.curTokenIs(SQLLimit) {
+		p.nextToken()
+
+		limit := p.parseIntegerLiteral()
+		p.nextToken()
+
+		if p.curTokenIs(COMMA) {
+			p.nextToken()
+			stmt.Offset = limit
+			stmt.Limit = p.parseIntegerLiteral()
+			p.nextToken()
+		} else {
+			stmt.Limit = limit
+		}
+	}
+
+	if !p.peekTokenIs(SEMICOLON, EOF) {
+		p.peekError(SEMICOLON)
+
+		return nil
+	}
 
 	return stmt
 }
 
-func (p *Parser) parseSQLCond() Expression {
+func (p *Parser) parseSQLCondition() Expression {
 	prefixes := p.prefixParseFns[p.curToken.Type]
 	if len(prefixes) == 0 {
 		p.noPrefixParseFnError(p.curToken.Type)
@@ -396,6 +416,7 @@ func (p *Parser) parseIntegerLiteral() Expression {
 		return nil
 	}
 	lit.Value = value
+
 	return lit
 }
 
@@ -492,7 +513,7 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 	block := &BlockStatement{Token: p.curToken}
 	block.Statements = []Statement{}
 	p.nextToken()
-	for !p.curTokenIs(RBRACE) && !p.curTokenIs(EOF) {
+	for !p.curTokenIs(RBRACE, EOF) {
 		if stmt := p.parseStatement(); stmt != nil {
 			block.Statements = append(block.Statements, stmt)
 		}
@@ -511,17 +532,6 @@ func (p *Parser) parseFunctionLiteral() Expression {
 		return nil
 	}
 	lit.Body = p.parseBlockStatement()
-	return lit
-}
-
-//nolint:unused
-func (p *Parser) parseSQLSelect() Expression {
-	lit := &SelectLiteral{Token: p.curToken}
-	p.nextToken()
-
-	exp := p.parseSQLColumn()
-	lit.Columns = append(lit.Columns, exp)
-
 	return lit
 }
 
@@ -643,11 +653,12 @@ func (p *Parser) parseSetsLiteral() Expression {
 }
 
 func (p *Parser) parseExpressionList(end TokenType) []Expression {
-	list := []Expression{}
+	var list []Expression
 	if p.peekTokenIs(end) {
 		p.nextToken()
 		return list
 	}
+
 	p.nextToken()
 	list = append(list, p.parseExpression(LOWEST))
 	for p.peekTokenIs(COMMA) {
@@ -655,9 +666,11 @@ func (p *Parser) parseExpressionList(end TokenType) []Expression {
 		p.nextToken()
 		list = append(list, p.parseExpression(LOWEST))
 	}
+
 	if !p.expectPeek(end) {
 		return nil
 	}
+
 	return list
 }
 

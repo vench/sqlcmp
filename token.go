@@ -47,6 +47,10 @@ const (
 	SQLDesc   TokenType = "DESC"
 	SQLAsc    TokenType = "ASC"
 	SQLLimit  TokenType = "LIMIT"
+	SQLJoin   TokenType = "JOIN"
+	SQLInner  TokenType = "INNER"
+	SQLLeft   TokenType = "LEFT"
+	SQLRight  TokenType = "RIGHT"
 
 	// List of allow operators.
 
@@ -107,6 +111,10 @@ var keywords = map[string]TokenType{
 	"desc":   SQLDesc,
 	"asc":    SQLAsc,
 	"limit":  SQLLimit,
+	"join":   SQLJoin,
+	"left":   SQLLeft,
+	"right":  SQLRight,
+	"inner":  SQLInner,
 }
 
 // LookupIdent converts string to TokenType.
