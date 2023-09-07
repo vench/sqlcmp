@@ -99,7 +99,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(SQLOr, p.parseInfixCondExpression)
 
 	//nolint:gocritic
-	// p.registerPrefix(STRING, p.parseSQLColumn)
+	// p.registerPrefix(STRING, p.parseSQLSource)
 
 	//nolint:gocritic
 	// p.registerPrefix(SQLSelect, p.parseSQLSelect)
@@ -209,7 +209,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 			p.nextToken() // next arg
 		}
 
-		if v := p.parseSQLColumn(); v != nil {
+		if v := p.parseSQLSource(); v != nil {
 			stmt.SQLSelectColumns = append(stmt.SQLSelectColumns, v)
 		}
 	}
@@ -230,7 +230,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		if p.curTokenIs(COMMA) {
 			p.nextToken() // next table
 		}
-		if v := p.parseSQLColumn(); v != nil {
+		if v := p.parseSQLSource(); v != nil {
 			stmt.From = append(stmt.From, v)
 		}
 	}
@@ -256,7 +256,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		p.nextToken()
 
 		// get source
-		if v := p.parseSQLColumn(); v != nil {
+		if v := p.parseSQLSource(); v != nil {
 			exp.Table = v
 		} else {
 			p.peekError(SQLFrom) // TODO: special case error
@@ -302,7 +302,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 			if p.curTokenIs(COMMA) {
 				p.nextToken() // next arg
 			}
-			if v := p.parseSQLColumn(); v != nil {
+			if v := p.parseSQLSource(); v != nil {
 				stmt.Group = append(stmt.Group, v)
 			}
 		}
@@ -446,7 +446,22 @@ func (p *Parser) parseExpression(precedence int) Expression {
 }
 
 func (p *Parser) parseIdentifier() Expression {
-	return &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	exp := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	if p.peekTokenIs(DOT) {
+		p.nextToken()
+
+		exp.Value += DOT.String()
+
+		if !p.peekTokenIs(IDENT) {
+			p.peekError(IDENT)
+			return nil
+		}
+		p.nextToken()
+
+		exp.Value += p.curToken.Literal
+	}
+
+	return exp
 }
 
 func (p *Parser) parseIntegerLiteral() Expression {
@@ -632,8 +647,8 @@ func (p *Parser) parseStringLiteral() Expression {
 	return &StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 }
 
-func (p *Parser) parseSQLColumn() Expression {
-	col := &SQLColumn{Token: p.curToken, Value: ""}
+func (p *Parser) parseSQLSource() Expression {
+	col := &SQLSource{Token: p.curToken, Value: ""}
 	col.Value += p.curToken.Literal
 	var alias bool
 

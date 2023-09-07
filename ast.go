@@ -385,16 +385,16 @@ func (sl *StringLiteral) expressionNode()      {}
 func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return sl.Token.Literal }
 
-// SQLColumn todo.
-type SQLColumn struct {
+// SQLSource that structure represents representations of a different source in the DB.
+type SQLSource struct {
 	Token Token
 	Value string
 	Alias string
 }
 
-func (sl *SQLColumn) expressionNode()      {}
-func (sl *SQLColumn) TokenLiteral() string { return sl.Token.Literal }
-func (sl *SQLColumn) String() string {
+func (sl *SQLSource) expressionNode()      {}
+func (sl *SQLSource) TokenLiteral() string { return sl.Token.Literal }
+func (sl *SQLSource) String() string {
 	if sl.Alias != "" {
 		return sl.Value + " AS " + sl.Alias
 	}

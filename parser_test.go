@@ -24,6 +24,14 @@ func TestParser_parseSQLCond(t *testing.T) {
 				Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
 			},
 		}},
+		{input: "t.id=1", expectedQuery: "(t.id = 1)", expectedValue: &SQLCondition{
+			Expression: &InfixExpression{
+				Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
+				Left:     &Identifier{Token: Token{Type: IDENT, Literal: "t"}, Value: "t.id"},
+				Operator: ASSIGN,
+				Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
+			},
+		}},
 		{
 			input: "id>100", expectedQuery: "(id > 100)", expectedValue: &SQLCondition{
 				Expression: &InfixExpression{
@@ -83,8 +91,65 @@ func TestParser_parseSQLCond(t *testing.T) {
 		p := NewParser(NewLexer(tc.input))
 		exp := p.parseSQLCondition()
 
+		require.EqualValuesf(t, 0, len(p.Errors()), "%v", p.Errors())
 		require.Equal(t, tc.expectedQuery, exp.String())
 		require.Equal(t, tc.expectedValue, exp)
+	}
+}
+
+func TestParser_parseSQLSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input         string
+		expectedQuery string
+		expectedExp   Expression
+	}{
+		{
+			input:         "date",
+			expectedQuery: "date",
+			expectedExp: &SQLSource{
+				Token: Token{Type: IDENT, Literal: "date"},
+				Value: "date",
+			},
+		},
+		{
+			input:         "now() as date",
+			expectedQuery: "now() AS date",
+			expectedExp: &SQLSource{
+				Token: Token{Type: IDENT, Literal: "now"},
+				Value: "now()",
+				Alias: "date",
+			},
+		},
+		{
+			input:         "db.table as t1",
+			expectedQuery: "db.table AS t1",
+			expectedExp: &SQLSource{
+				Token: Token{Type: IDENT, Literal: "db"},
+				Value: "db.table",
+				Alias: "t1",
+			},
+		},
+		{
+			input:         "name as nm",
+			expectedQuery: "name AS nm",
+			expectedExp: &SQLSource{
+				Token: Token{Type: IDENT, Literal: "name"},
+				Value: "name",
+				Alias: "nm",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		p := NewParser(NewLexer(tt.input))
+
+		exp := p.parseSQLSource()
+		checkParserErrors(t, p)
+
+		require.Equal(t, tt.expectedQuery, exp.String())
+		require.EqualValues(t, tt.expectedExp, exp)
 	}
 }
 
@@ -94,7 +159,12 @@ func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 	tests := []struct {
 		input         string
 		expectedQuery string
-	}{}
+	}{
+		{
+			input:         "Select 1",
+			expectedQuery: "SELECT 1;",
+		},
+	}
 
 	for _, tt := range tests {
 		p := NewParser(NewLexer(tt.input))
@@ -116,8 +186,8 @@ func TestParser_parseSQLSelectStatementWithJoin(t *testing.T) {
 		expectedQuery string
 	}{
 		{
-			input:         "select * from t1 inner join t2 ON (id= pid) WHERE id > 100 order by date",
-			expectedQuery: "SELECT * FROM t1 INNER JOIN t2 ON (id = pid) WHERE (id > 100) ORDER BY date;",
+			input:         "select * from t1 inner join t2 ON (t1.id= t2.id) WHERE t1.id > 100 order by date",
+			expectedQuery: "SELECT * FROM t1 INNER JOIN t2 ON (t1.id = t2.id) WHERE (t1.id > 100) ORDER BY date;",
 		},
 	}
 
