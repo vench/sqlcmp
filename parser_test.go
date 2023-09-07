@@ -16,6 +16,36 @@ func TestParser_parseSQLCond(t *testing.T) {
 		expectedQuery string
 		expectedValue any
 	}{
+		{
+			input: "(t1.key = t3.key and t3.date > now())", expectedQuery: "((t1.key = t3.key) AND (t3.date > now()))", expectedValue: &SQLCondition{
+				Expression: &SQLCondition{
+					Expression: &SQLCondition{
+						Expression: &InfixExpression{
+							Token: Token{Type: SQLAnd, Literal: "and"},
+							Left: &InfixExpression{
+								Token:    Token{Type: ASSIGN, Literal: "="},
+								Left:     &Identifier{Token: Token{Type: IDENT, Literal: "t1"}, Value: "t1.key"},
+								Operator: ASSIGN,
+								Right:    &Identifier{Token: Token{Type: IDENT, Literal: "t3"}, Value: "t3.key"},
+							},
+							Operator: SQLAnd,
+							Right: &InfixExpression{
+								Token:    Token{Type: GT, Literal: ">"},
+								Left:     &Identifier{Token: Token{Type: IDENT, Literal: "t3"}, Value: "t3.date"},
+								Operator: GT,
+								Right: &CallExpression{
+									Token: Token{Type: LPAREN, Literal: "("},
+									Function: &Identifier{
+										Token: Token{Type: IDENT, Literal: "now"},
+										Value: "now",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		{input: "id=1", expectedQuery: "(id = 1)", expectedValue: &SQLCondition{
 			Expression: &InfixExpression{
 				Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
@@ -54,11 +84,13 @@ func TestParser_parseSQLCond(t *testing.T) {
 		},
 		{
 			input: "(name = 'test*')", expectedQuery: "(name = test*)", expectedValue: &SQLCondition{
-				Expression: &InfixExpression{
-					Token:    Token{Type: ASSIGN, Literal: "="},
-					Left:     &Identifier{Token: Token{Type: IDENT, Literal: "name"}, Value: "name"},
-					Operator: ASSIGN,
-					Right:    &StringLiteral{Token: Token{Type: STRING, Literal: "test*"}, Value: "test*"},
+				Expression: &SQLCondition{
+					Expression: &InfixExpression{
+						Token:    Token{Type: ASSIGN, Literal: "="},
+						Left:     &Identifier{Token: Token{Type: IDENT, Literal: "name"}, Value: "name"},
+						Operator: ASSIGN,
+						Right:    &StringLiteral{Token: Token{Type: STRING, Literal: "test*"}, Value: "test*"},
+					},
 				},
 			},
 		},
@@ -188,6 +220,12 @@ func TestParser_parseSQLSelectStatementWithJoin(t *testing.T) {
 		{
 			input:         "select * from t1 inner join t2 ON (t1.id= t2.id) WHERE t1.id > 100 order by date",
 			expectedQuery: "SELECT * FROM t1 INNER JOIN t2 ON (t1.id = t2.id) WHERE (t1.id > 100) ORDER BY date;",
+		},
+		{
+			input: "select * from t1 inner join t2 ON (t1.id= t2.id) left join t3 ON (t1.key = t3.key and t3.date > now()) " +
+				"WHERE t1.id > 100 group by date",
+			expectedQuery: "SELECT * FROM t1 INNER JOIN t2 ON (t1.id = t2.id) LEFT JOIN t3 ON ((t1.key = t3.key) AND (t3.date > now())) " +
+				"WHERE (t1.id > 100) GROUP BY date;",
 		},
 	}
 

@@ -71,7 +71,8 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(MINUS, p.parsePrefixExpression)
 	p.registerPrefix(TRUE, p.parseBoolean)
 	p.registerPrefix(FALSE, p.parseBoolean)
-	p.registerPrefix(LPAREN, p.parseGroupedExpression)
+	p.registerPrefix(LPAREN, p.parseSQLGroupedCondition)
+
 	p.registerPrefix(IF, p.parseIfExpression)
 	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(STRING, p.parseStringLiteral)
@@ -236,7 +237,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	}
 
 	// parse join
-	if p.curTokenIs(SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin) {
+	for p.curTokenIs(SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin) {
 		exp := &SQLJoinExp{Token: Token{Type: SQLJoin}}
 		for !p.curTokenIs(SQLJoin) { // get type
 			exp.Type = p.curToken.Type
@@ -266,7 +267,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		if p.curTokenIs(SQLOn) { // parse cond
 			p.nextToken()
 
-			for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup, SQLLimit, SQLWhere, RPAREN) {
+			for !p.curTokenIs(SEMICOLON, EOF, SQLOrder, SQLGroup, SQLLimit, SQLWhere, RPAREN, SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin) {
 				if cond := p.parseSQLCondition(); cond != nil {
 					exp.Cond = append(exp.Cond, cond)
 				}
@@ -480,7 +481,10 @@ func (p *Parser) parseIntegerLiteral() Expression {
 }
 
 func (p *Parser) noPrefixParseFnError(t Token) {
-	msg := fmt.Sprintf("no prefix parse function for %s found, literal: %s", t.Type.String(), t.Literal)
+	msg := fmt.Sprintf(
+		"no prefix parse function for %s found, literal: %s, cur token: %s",
+		t.Type.String(), t.Literal, p.curToken.Literal)
+
 	p.errors = append(p.errors, msg)
 }
 
@@ -533,9 +537,9 @@ func (p *Parser) parseBoolean() Expression {
 	return &Boolean{Token: p.curToken, Value: p.curTokenIs(TRUE)}
 }
 
-func (p *Parser) parseGroupedExpression() Expression {
+func (p *Parser) parseSQLGroupedCondition() Expression {
 	p.nextToken()
-	exp := p.parseExpression(LOWEST)
+	exp := p.parseSQLCondition()
 	if !p.expectPeek(RPAREN) {
 		return nil
 	}
