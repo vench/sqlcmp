@@ -39,6 +39,7 @@ var (
 
 		SQLOr:  LOWEST,
 		SQLAnd: LOWEST,
+		SQLAs:  EQUALS,
 	}
 
 	showEnteringLeaving = false
@@ -98,6 +99,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(LBRACKET, p.parseIndexExpression)
 	p.registerInfix(SQLAnd, p.parseInfixCondExpression)
 	p.registerInfix(SQLOr, p.parseInfixCondExpression)
+	p.registerInfix(SQLAs, p.parseInfixAsExpression) // parseInfixAsExpression
 
 	//nolint:gocritic
 	// p.registerPrefix(STRING, p.parseSQLSource)
@@ -199,7 +201,7 @@ func (p *Parser) parseReturnStatement() *ReturnStatement {
 	return stmt
 }
 
-//nolint:funlen,gocyclo
+//nolint:funlen,gocyclo,gocritic
 func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	stmt := &SQLSelectStatement{Token: p.curToken}
 	p.nextToken()
@@ -235,6 +237,13 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 			stmt.From = append(stmt.From, v)
 		}
 	}
+	/*
+		stmt.From = append(stmt.From, p.parseExpression(LOWEST))
+		for p.peekTokenIs(COMMA) {
+			p.nextToken()
+			p.nextToken()
+			stmt.From = append(stmt.From, p.parseExpression(LOWEST))
+		}*/
 
 	// parse join
 	for p.curTokenIs(SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin) {
@@ -652,13 +661,15 @@ func (p *Parser) parseStringLiteral() Expression {
 }
 
 func (p *Parser) parseSQLSource() Expression {
+	stopTokens := []TokenType{
+		COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder, SQLLimit, SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin, SQLOn,
+	}
+
 	col := &SQLSource{Token: p.curToken, Value: ""}
 	col.Value += p.curToken.Literal
 	var alias bool
 
-	for !p.peekTokenIs(
-		COMMA, EOF, SQLFrom, SEMICOLON, SQLWhere, SQLGroup, SQLOrder, SQLLimit, SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin, SQLOn,
-	) {
+	for !p.peekTokenIs(stopTokens...) {
 		p.nextToken()
 
 		if p.curTokenIs(SQLAs) {
@@ -667,6 +678,12 @@ func (p *Parser) parseSQLSource() Expression {
 		}
 
 		if alias {
+			if col.Alias == "" && p.curTokenIs(INT) {
+				p.peekError(INT)
+
+				return nil
+			}
+
 			col.Alias += p.curToken.Literal
 		} else {
 			col.Value += p.curToken.Literal
@@ -737,6 +754,18 @@ func (p *Parser) parseExpressionList(end TokenType) []Expression {
 	}
 
 	return list
+}
+
+//nolint:gocritic
+func (p *Parser) parseInfixAsExpression(left Expression) Expression {
+	// panic("parseInfixAsExpression")
+	if exp := p.parseInfixExpression(left); exp != nil {
+		// e := exp.(*InfixExpression)
+		// panic(reflect.TypeOf(exp))
+		return exp
+	}
+
+	return nil
 }
 
 func (p *Parser) parseInfixCondExpression(left Expression) Expression {

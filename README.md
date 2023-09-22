@@ -1,3 +1,3 @@
 # SQL compare
 
-That package parse raw SQL query and compare structure.
+This package allows you to parse SQL queries into tokens and compare them in parts.

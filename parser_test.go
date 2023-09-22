@@ -210,6 +210,31 @@ func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 	}
 }
 
+func TestParser_parseSQLSelectStatementerror(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input string
+	}{
+		{
+			input: "select * from t1 as 1",
+		},
+		{
+			input: "select x as 3 from 1",
+		},
+	}
+
+	for _, tt := range tests {
+		p := NewParser(NewLexer(tt.input))
+
+		stmt := p.parseSQLSelectStatement()
+		require.True(t, len(p.Errors()) != 0)
+		_ = stmt
+		t.Log(stmt.String())
+		t.Log(p.errors)
+	}
+}
+
 func TestParser_parseSQLSelectStatementWithJoin(t *testing.T) {
 	t.Parallel()
 
@@ -424,6 +449,8 @@ func checkParserErrors(t *testing.T, p *Parser) {
 	for _, msg := range errors {
 		t.Errorf("parser error: %q", msg)
 	}
+
+	t.Errorf("input: %s", p.l.input)
 
 	t.FailNow()
 }

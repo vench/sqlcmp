@@ -254,11 +254,18 @@ func (oe *InfixExpression) TokenLiteral() string { return oe.Token.Literal }
 func (oe *InfixExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("(")
+	if oe.Operator != SQLAs {
+		out.WriteString("(")
+	}
+
 	out.WriteString(oe.Left.String())
 	out.WriteString(" " + oe.Operator.String() + " ")
 	out.WriteString(oe.Right.String())
-	out.WriteString(")")
+
+	if oe.Operator != SQLAs {
+		out.WriteString(")")
+	}
+
 	return out.String()
 }
 
