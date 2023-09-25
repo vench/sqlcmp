@@ -129,6 +129,135 @@ func TestParser_parseSQLCond(t *testing.T) {
 	}
 }
 
+func TestParser_parseSQLColumns(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input         string
+		expectedQuery string
+		expectedExp   Expression
+	}{
+		{
+			input:         "date",
+			expectedQuery: "date",
+			expectedExp: &Identifier{
+				Token: Token{Type: IDENT, Literal: "date"},
+				Value: "date",
+			},
+		},
+		{
+			input:         "now() as date",
+			expectedQuery: "now() AS date",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "as"},
+				Operator: SQLAs,
+				Left: &CallExpression{
+					Token: Token{Type: LPAREN, Literal: "("},
+					Function: &Identifier{
+						Token: Token{Type: IDENT, Literal: "now"},
+						Value: "now",
+					},
+				},
+				Right: &Identifier{
+					Token: Token{Type: IDENT, Literal: "date"},
+					Value: "date",
+				},
+			},
+		},
+		{
+			input:         "db.table as t1",
+			expectedQuery: "db.table AS t1",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "as"},
+				Operator: SQLAs,
+				Left: &Identifier{
+					Token: Token{Type: IDENT, Literal: "db"},
+					Value: "db.table",
+				},
+				Right: &Identifier{
+					Token: Token{Type: IDENT, Literal: "t1"},
+					Value: "t1",
+				},
+			},
+		},
+		{
+			input:         "name as nm",
+			expectedQuery: "name AS nm",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "as"},
+				Operator: SQLAs,
+				Left: &Identifier{
+					Token: Token{Type: IDENT, Literal: "name"},
+					Value: "name",
+				},
+				Right: &Identifier{
+					Token: Token{Type: IDENT, Literal: "nm"},
+					Value: "nm",
+				},
+			},
+		},
+		{
+			input:         "1001 as ID",
+			expectedQuery: "1001 AS ID",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "as"},
+				Operator: SQLAs,
+				Left: &IntegerLiteral{
+					Token: Token{Type: INT, Literal: "1001"},
+					Value: 1001,
+				},
+				Right: &Identifier{
+					Token: Token{Type: IDENT, Literal: "ID"},
+					Value: "ID",
+				},
+			},
+		},
+		// all
+		{
+			input:         "*",
+			expectedQuery: "*",
+			expectedExp: &Identifier{
+				Token: Token{Type: IDENT, Literal: "*"},
+				Value: "*",
+			},
+		},
+		{
+			input:         "t1.*",
+			expectedQuery: "t1.*",
+			expectedExp: &Identifier{
+				Token: Token{Type: IDENT, Literal: "t1"},
+				Value: "t1.*",
+			},
+		},
+		{
+			input:         "`date` as `dt`",
+			expectedQuery: "date AS dt",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "as"},
+				Operator: SQLAs,
+				Left: &StringLiteral{
+					Token: Token{Type: STRING, Literal: "date"},
+					Value: "date",
+				},
+				Right: &StringLiteral{
+					Token: Token{Type: STRING, Literal: "dt"},
+					Value: "dt",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		p := NewParser(NewLexer(tt.input))
+
+		exp := p.parseSQLColumn()
+		checkParserErrors(t, p)
+
+		require.Equal(t, tt.expectedQuery, exp.String())
+		require.EqualValuesf(t, tt.expectedExp, exp, "input: %s", tt.input)
+	}
+}
+
 func TestParser_parseSQLSource(t *testing.T) {
 	t.Parallel()
 
@@ -181,10 +310,11 @@ func TestParser_parseSQLSource(t *testing.T) {
 		checkParserErrors(t, p)
 
 		require.Equal(t, tt.expectedQuery, exp.String())
-		require.EqualValues(t, tt.expectedExp, exp)
+		require.EqualValuesf(t, tt.expectedExp, exp, "input: %s", tt.input)
 	}
 }
 
+// TODO
 func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 	t.Parallel()
 
@@ -193,8 +323,8 @@ func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 		expectedQuery string
 	}{
 		{
-			input:         "Select 1",
-			expectedQuery: "SELECT 1;",
+			input:         "Select name, test, now() AS db, 100 as id from t",
+			expectedQuery: "SELECT name, test, now() AS db, 100 AS id FROM t;",
 		},
 	}
 
@@ -210,7 +340,7 @@ func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 	}
 }
 
-func TestParser_parseSQLSelectStatementerror(t *testing.T) {
+func TestParser_parseSQLSelectStatementError(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -220,7 +350,7 @@ func TestParser_parseSQLSelectStatementerror(t *testing.T) {
 			input: "select * from t1 as 1",
 		},
 		{
-			input: "select x as 3 from 1",
+			input: "select x as 3 fr om 1",
 		},
 	}
 
@@ -228,7 +358,7 @@ func TestParser_parseSQLSelectStatementerror(t *testing.T) {
 		p := NewParser(NewLexer(tt.input))
 
 		stmt := p.parseSQLSelectStatement()
-		require.True(t, len(p.Errors()) != 0)
+		require.Truef(t, len(p.Errors()) != 0, "input: %s, %s", tt.input, stmt.String())
 		_ = stmt
 		t.Log(stmt.String())
 		t.Log(p.errors)
@@ -278,11 +408,11 @@ func TestParser_parseSQLSelectStatement(t *testing.T) {
 		{input: "Select now() as dt;", expectedQuery: "SELECT now() AS dt;"},
 		{input: "Select name", expectedQuery: "SELECT name;"},
 		{input: "Select id, name", expectedQuery: "SELECT id, name;"},
-		{input: "Select id, name, `date` as `dt`;", expectedQuery: "SELECT id, name, `date` AS `dt`;"},
+		{input: "Select id, name, `date` as `dt`;", expectedQuery: "SELECT id, name, date AS dt;"},
 		{input: "Select id from table", expectedQuery: "SELECT id FROM table;"},
-		{input: "select * from `users`", expectedQuery: "SELECT * FROM `users`;"},
-		{input: "select t.* from `users` AS t", expectedQuery: "SELECT t.* FROM `users` AS t;"},
-		{input: "select *,id AS \"ID\" from `users`", expectedQuery: "SELECT *, id AS ID FROM `users`;"},
+		{input: "select * from `users`", expectedQuery: "SELECT * FROM users;"},
+		{input: "select t.* from `users` AS t", expectedQuery: "SELECT t.* FROM users AS t;"},
+		{input: "select *,id AS \"ID\" from `users`", expectedQuery: "SELECT *, id AS ID FROM users;"},
 		{input: "select name as nm from users", expectedQuery: "SELECT name AS nm FROM users;"},
 		{input: "Select a.id, b.date as dt from table as a, users as b", expectedQuery: "SELECT a.id, b.date AS dt FROM table AS a, users AS b;"},
 		{input: "select * from t WHERE id = 1", expectedQuery: "SELECT * FROM t WHERE (id = 1);"},
@@ -394,26 +524,6 @@ func testIntegerLiteral(t *testing.T, il Expression, value int64) bool {
 	if integ.TokenLiteral() != fmt.Sprintf("%d", value) {
 		t.Errorf("integ.TokenLiteral not %d. got=%s", value,
 			integ.TokenLiteral())
-		return false
-	}
-	return true
-}
-
-//nolint:unused
-func testInfixExpression(t *testing.T, exp Expression, left any, operator TokenType, right any) bool {
-	opExp, ok := exp.(*InfixExpression)
-	if !ok {
-		t.Errorf("exp is not ast.OperatorExpression. got=%T(%s)", exp, exp)
-		return false
-	}
-	if !testLiteralExpression(t, opExp.Left, left) {
-		return false
-	}
-	if opExp.Operator != operator {
-		t.Errorf("exp.Operator is not '%s'. got=%q", operator, opExp.Operator)
-		return false
-	}
-	if !testLiteralExpression(t, opExp.Right, right) {
 		return false
 	}
 	return true

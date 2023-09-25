@@ -73,7 +73,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(TRUE, p.parseBoolean)
 	p.registerPrefix(FALSE, p.parseBoolean)
 	p.registerPrefix(LPAREN, p.parseSQLGroupedCondition)
-
+	p.registerPrefix(ASTERISK, p.parseAsterisk)
 	p.registerPrefix(IF, p.parseIfExpression)
 	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(STRING, p.parseStringLiteral)
@@ -99,7 +99,8 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(LBRACKET, p.parseIndexExpression)
 	p.registerInfix(SQLAnd, p.parseInfixCondExpression)
 	p.registerInfix(SQLOr, p.parseInfixCondExpression)
-	p.registerInfix(SQLAs, p.parseInfixAsExpression) // parseInfixAsExpression
+	p.registerInfix(SQLAs, p.parseInfixAsExpression)
+	// DOT
 
 	//nolint:gocritic
 	// p.registerPrefix(STRING, p.parseSQLSource)
@@ -212,9 +213,11 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 			p.nextToken() // next arg
 		}
 
-		if v := p.parseSQLSource(); v != nil {
+		if v := p.parseSQLColumn(); v != nil {
 			stmt.SQLSelectColumns = append(stmt.SQLSelectColumns, v)
 		}
+
+		p.nextToken()
 	}
 
 	// parse from
@@ -233,9 +236,10 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		if p.curTokenIs(COMMA) {
 			p.nextToken() // next table
 		}
-		if v := p.parseSQLSource(); v != nil {
+		if v := p.parseSQLFrom(); v != nil {
 			stmt.From = append(stmt.From, v)
 		}
+		p.nextToken()
 	}
 	/*
 		stmt.From = append(stmt.From, p.parseExpression(LOWEST))
@@ -397,6 +401,10 @@ func (p *Parser) Errors() []string {
 	return p.errors
 }
 
+func (p *Parser) addError(msg string) {
+	p.errors = append(p.errors, msg)
+}
+
 func (p *Parser) peekError(t TokenType) {
 	msg := fmt.Sprintf("expected next token to be %s, got %s instead",
 		t, p.peekToken.Type)
@@ -460,9 +468,10 @@ func (p *Parser) parseIdentifier() Expression {
 	if p.peekTokenIs(DOT) {
 		p.nextToken()
 
+		// @todo: maybe DOT like infix
 		exp.Value += DOT.String()
 
-		if !p.peekTokenIs(IDENT) {
+		if !p.peekTokenIs(IDENT, ASTERISK) {
 			p.peekError(IDENT)
 			return nil
 		}
@@ -544,6 +553,13 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 
 func (p *Parser) parseBoolean() Expression {
 	return &Boolean{Token: p.curToken, Value: p.curTokenIs(TRUE)}
+}
+
+func (p *Parser) parseAsterisk() Expression {
+	return &Identifier{
+		Token: Token{Type: IDENT, Literal: p.curToken.Literal},
+		Value: p.curToken.Literal,
+	}
 }
 
 func (p *Parser) parseSQLGroupedCondition() Expression {
@@ -658,6 +674,43 @@ func (p *Parser) parseCallArguments() []Expression {
 
 func (p *Parser) parseStringLiteral() Expression {
 	return &StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseSQLFrom() Expression {
+	exp := p.parseExpression(LOWEST)
+	// validate
+	switch tp := exp.(type) {
+	case *InfixExpression:
+		if _, ok := tp.Left.(*IntegerLiteral); ok {
+			p.addError("left node is integer")
+
+			return exp
+		}
+
+		if _, ok := tp.Right.(*IntegerLiteral); ok {
+			p.addError("right node is integer")
+
+			return exp
+		}
+	}
+
+	return exp
+}
+
+func (p *Parser) parseSQLColumn() Expression {
+	exp := p.parseExpression(LOWEST)
+
+	// validate
+	switch tp := exp.(type) {
+	case *InfixExpression:
+		if _, ok := tp.Right.(*IntegerLiteral); ok {
+			p.addError("right node is integer")
+
+			return exp
+		}
+	}
+
+	return exp
 }
 
 func (p *Parser) parseSQLSource() Expression {
