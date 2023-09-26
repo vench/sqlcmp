@@ -72,7 +72,10 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(MINUS, p.parsePrefixExpression)
 	p.registerPrefix(TRUE, p.parseBoolean)
 	p.registerPrefix(FALSE, p.parseBoolean)
+
+	p.registerPrefix(LPAREN, p.parseSQLSubSelect)
 	p.registerPrefix(LPAREN, p.parseSQLGroupedCondition)
+
 	p.registerPrefix(ASTERISK, p.parseAsterisk)
 	p.registerPrefix(IF, p.parseIfExpression)
 	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
@@ -81,6 +84,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(SETS, p.parseSetsLiteral)
 	p.registerPrefix(LBRACE, p.parseSetsLiteralShort)
 	p.registerPrefix(HASH, p.parseHashLiteral)
+	p.registerPrefix(SQLSelect, p.parseSQLSubSelect)
 
 	p.infixParseFns = make(map[TokenType]infixParseFn)
 	p.registerInfix(PLUS, p.parseInfixExpression)
@@ -104,9 +108,6 @@ func NewParser(l *Lexer) *Parser {
 
 	//nolint:gocritic
 	// p.registerPrefix(STRING, p.parseSQLSource)
-
-	//nolint:gocritic
-	// p.registerPrefix(SQLSelect, p.parseSQLSelect)
 
 	return p
 }
@@ -208,7 +209,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	p.nextToken()
 
 	// parse columns
-	for !p.curTokenIs(SEMICOLON, EOF, SQLFrom) {
+	for !p.curTokenIs(SEMICOLON, EOF, SQLFrom, RPAREN) {
 		if p.curTokenIs(COMMA) {
 			p.nextToken() // next arg
 		}
@@ -220,9 +221,13 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		p.nextToken()
 	}
 
+	if len(stmt.SQLSelectColumns) > 1 {
+		// panic("p.nextToken() " + stmt.String())
+	}
+
 	// parse from
 	if !p.curTokenIs(SQLFrom) {
-		if !p.curTokenIs(SEMICOLON, EOF) {
+		if !p.curTokenIs(SEMICOLON, EOF, RPAREN) {
 			p.peekError(SEMICOLON)
 		}
 
@@ -563,11 +568,12 @@ func (p *Parser) parseAsterisk() Expression {
 }
 
 func (p *Parser) parseSQLGroupedCondition() Expression {
-	p.nextToken()
+	p.nextToken() // skip LPAREN - (
 	exp := p.parseSQLCondition()
 	if !p.expectPeek(RPAREN) {
 		return nil
 	}
+
 	return exp
 }
 
@@ -679,6 +685,7 @@ func (p *Parser) parseStringLiteral() Expression {
 func (p *Parser) parseSQLFrom() Expression {
 	exp := p.parseExpression(LOWEST)
 	// validate
+	//nolint:gocritic
 	switch tp := exp.(type) {
 	case *InfixExpression:
 		if _, ok := tp.Left.(*IntegerLiteral); ok {
@@ -701,6 +708,7 @@ func (p *Parser) parseSQLColumn() Expression {
 	exp := p.parseExpression(LOWEST)
 
 	// validate
+	//nolint:gocritic
 	switch tp := exp.(type) {
 	case *InfixExpression:
 		if _, ok := tp.Right.(*IntegerLiteral); ok {
@@ -838,6 +846,32 @@ func (p *Parser) parseIndexExpression(left Expression) Expression {
 	if !p.expectPeek(RBRACKET) {
 		return nil
 	}
+	return exp
+}
+
+// parseSQLSubSelect parse sub query like: (select ...).
+func (p *Parser) parseSQLSubSelect() Expression {
+	if !(p.curTokenIs(LPAREN) && p.peekTokenIs(SQLSelect)) {
+		return nil
+	}
+
+	exp := &SQLSubSelectExpression{Token: p.curToken}
+
+	p.nextToken()
+
+	if !p.curTokenIs(SQLSelect) {
+		p.peekError(SQLSelect)
+		return nil
+	}
+
+	exp.Select = p.parseSQLSelectStatement()
+
+	if !p.curTokenIs(RPAREN) {
+		p.addError("check token )")
+
+		return nil
+	}
+
 	return exp
 }
 

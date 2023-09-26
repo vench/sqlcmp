@@ -245,6 +245,30 @@ func TestParser_parseSQLColumns(t *testing.T) {
 				},
 			},
 		},
+		{
+			input:         "(select 1) as id",
+			expectedQuery: "(SELECT 1) AS id",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "as"},
+				Operator: SQLAs,
+				Left: &SQLSubSelectExpression{
+					Token: Token{Type: LPAREN, Literal: "("},
+					Select: &SQLSelectStatement{
+						Token: Token{Type: SQLSelect, Literal: "select"},
+						SQLSelectColumns: []Expression{
+							&IntegerLiteral{
+								Token: Token{Type: INT, Literal: "1"},
+								Value: 1,
+							},
+						},
+					},
+				},
+				Right: &Identifier{
+					Token: Token{Type: IDENT, Literal: "id"},
+					Value: "id",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -314,7 +338,19 @@ func TestParser_parseSQLSource(t *testing.T) {
 	}
 }
 
-// TODO
+func TestParser_parseSQLSelect(t *testing.T) {
+	t.Parallel()
+
+	p := NewParser(NewLexer("SELECT 1"))
+	exp := p.parseSQLSubSelect()
+	require.Nil(t, exp)
+
+	p = NewParser(NewLexer("(SELECT 1)"))
+	exp = p.parseSQLSubSelect()
+	require.Equal(t, "(SELECT 1)", exp.String())
+}
+
+// @TODO: x
 func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 	t.Parallel()
 
@@ -325,6 +361,10 @@ func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 		{
 			input:         "Select name, test, now() AS db, 100 as id from t",
 			expectedQuery: "SELECT name, test, now() AS db, 100 AS id FROM t;",
+		},
+		{
+			input:         "Select (SELECT 1) AS nm",
+			expectedQuery: "SELECT (SELECT 1) AS nm;",
 		},
 	}
 

@@ -109,7 +109,7 @@ type SQLSelectStatement struct {
 func (rs *SQLSelectStatement) statementNode()       {}
 func (rs *SQLSelectStatement) TokenLiteral() string { return rs.Token.Literal }
 
-func (rs *SQLSelectStatement) String() string {
+func (rs *SQLSelectStatement) ToString(skipSemicolon bool) string {
 	var out bytes.Buffer
 	out.WriteString(SQLSelect.String())
 
@@ -191,9 +191,15 @@ func (rs *SQLSelectStatement) String() string {
 		}
 	}
 
-	out.WriteString(";")
+	if skipSemicolon {
+		out.WriteString(";")
+	}
 
 	return out.String()
+}
+
+func (rs *SQLSelectStatement) String() string {
+	return rs.ToString(true)
 }
 
 // ExpressionStatement todo.
@@ -497,6 +503,22 @@ func (ie *IndexExpression) String() string {
 	out.WriteString("[")
 	out.WriteString(ie.Index.String())
 	out.WriteString("])")
+	return out.String()
+}
+
+// SQLSubSelectExpression todo.
+type SQLSubSelectExpression struct {
+	Token  Token // The ( token
+	Select *SQLSelectStatement
+}
+
+func (ie *SQLSubSelectExpression) expressionNode()      {}
+func (ie *SQLSubSelectExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *SQLSubSelectExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	out.WriteString(ie.Select.ToString(false))
+	out.WriteString(")")
 	return out.String()
 }
 
