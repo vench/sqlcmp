@@ -308,6 +308,30 @@ func (ie *IfExpression) String() string {
 	return out.String()
 }
 
+// InExpression todo.
+type InExpression struct {
+	Token     Token // The 'in' token
+	Column    Expression
+	Arguments []Expression
+}
+
+func (ce *InExpression) expressionNode()      {}
+func (ce *InExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *InExpression) String() string {
+	var out bytes.Buffer
+	var args []string
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+	out.WriteString(ce.Column.String() + " ")
+	out.WriteString(SQLIn.String() + " ")
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // BlockStatement todo.
 type BlockStatement struct {
 	Token      Token // the { token

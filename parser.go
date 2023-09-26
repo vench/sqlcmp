@@ -25,6 +25,7 @@ var (
 		EQ:          EQUALS,
 		NotEq:       EQUALS,
 		ASSIGN:      EQUALS,
+		SQLIn:       EQUALS,
 		LT:          LESSGREATER,
 		GT:          LESSGREATER,
 		PLUS:        SUM,
@@ -104,6 +105,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(SQLAnd, p.parseInfixCondExpression)
 	p.registerInfix(SQLOr, p.parseInfixCondExpression)
 	p.registerInfix(SQLAs, p.parseInfixAsExpression)
+	p.registerInfix(SQLIn, p.parseInfixInExpression)
 	// DOT
 
 	//nolint:gocritic
@@ -117,6 +119,7 @@ func (p *Parser) nextToken() {
 	p.peekToken = p.l.NextToken()
 }
 
+// ParseProgram todo.
 func (p *Parser) ParseProgram() *Program {
 	program := &Program{}
 	program.Statements = []Statement{}
@@ -128,6 +131,11 @@ func (p *Parser) ParseProgram() *Program {
 		p.nextToken()
 	}
 	return program
+}
+
+// ParseStatement todo.
+func (p *Parser) ParseStatement() Statement {
+	return p.parseStatement()
 }
 
 func (p *Parser) parseStatement() Statement {
@@ -237,7 +245,7 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 	// skip from token
 	p.nextToken()
 
-	for !p.curTokenIs(SEMICOLON, EOF, SQLWhere, SQLGroup, SQLOrder, SQLLimit, SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin) {
+	for !p.curTokenIs(SEMICOLON, EOF, SQLWhere, SQLGroup, SQLOrder, SQLLimit, SQLInner, SQLLeft, SQLRight, SQLCross, SQLJoin, RPAREN) {
 		if p.curTokenIs(COMMA) {
 			p.nextToken() // next table
 		}
@@ -817,12 +825,23 @@ func (p *Parser) parseExpressionList(end TokenType) []Expression {
 	return list
 }
 
-//nolint:gocritic
+func (p *Parser) parseInfixInExpression(left Expression) Expression {
+	if !p.curTokenIs(SQLIn) {
+		p.addError("check IN")
+		return nil
+	}
+	if !p.expectPeek(LPAREN) {
+		return nil
+	}
+	exp := &InExpression{Token: p.curToken, Column: left}
+
+	exp.Arguments = p.parseExpressionList(RPAREN)
+
+	return exp
+}
+
 func (p *Parser) parseInfixAsExpression(left Expression) Expression {
-	// panic("parseInfixAsExpression")
 	if exp := p.parseInfixExpression(left); exp != nil {
-		// e := exp.(*InfixExpression)
-		// panic(reflect.TypeOf(exp))
 		return exp
 	}
 

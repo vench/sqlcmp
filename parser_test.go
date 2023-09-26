@@ -341,13 +341,49 @@ func TestParser_parseSQLSource(t *testing.T) {
 func TestParser_parseSQLSelect(t *testing.T) {
 	t.Parallel()
 
-	p := NewParser(NewLexer("SELECT 1"))
-	exp := p.parseSQLSubSelect()
-	require.Nil(t, exp)
+	tt := []struct {
+		input  string
+		output string
+		isNil  bool
+	}{
+		{
+			input: "SELECT 1",
+			isNil: true,
+		},
+		{
+			input:  "(SELECT 1)",
+			output: "(SELECT 1)",
+		},
+		{
+			input:  "(SELECT name from t)",
+			output: "(SELECT name FROM t)",
+		},
+		{
+			input: "(SELECT name from t",
+			isNil: true,
+		},
+		{
+			input:  "(SELECT name from t join t2 ON (a=b))",
+			output: "(SELECT name FROM t JOIN t2 ON (a = b))",
+		},
+	}
 
-	p = NewParser(NewLexer("(SELECT 1)"))
-	exp = p.parseSQLSubSelect()
-	require.Equal(t, "(SELECT 1)", exp.String())
+	for i := range tt {
+		tc := tt[i]
+
+		t.Run(tc.input, func(t *testing.T) {
+			t.Parallel()
+
+			p := NewParser(NewLexer(tc.input))
+			exp := p.parseSQLSubSelect()
+			if tc.isNil {
+				require.Nil(t, exp)
+			} else {
+				require.NotNilf(t, exp, "errors: %v", p.Errors())
+				require.Equal(t, tc.output, exp.String())
+			}
+		})
+	}
 }
 
 // @TODO: x

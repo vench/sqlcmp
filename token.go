@@ -56,6 +56,7 @@ const (
 	SQLCross  TokenType = "CROSS"
 	SQLOn     TokenType = "ON"
 	SQLNot    TokenType = "NOT"
+	SQLIn     TokenType = "IN"
 
 	// List of allow operators.
 
@@ -125,6 +126,7 @@ var keywords = map[string]TokenType{
 	"outer":  SQLOuter,
 	"on":     SQLOn,
 	"not":    SQLNot,
+	"in":     SQLIn,
 }
 
 // LookupIdent converts string to TokenType.
