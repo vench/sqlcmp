@@ -20,6 +20,11 @@ type Expression interface {
 	expressionNode()
 }
 
+// SQLStructcher todo,
+type SQLStructcher interface {
+	Structcher() string
+}
+
 type Program struct {
 	Statements []Statement
 }
@@ -109,7 +114,9 @@ type SQLSelectStatement struct {
 func (rs *SQLSelectStatement) statementNode()       {}
 func (rs *SQLSelectStatement) TokenLiteral() string { return rs.Token.Literal }
 
-func (rs *SQLSelectStatement) ToString(skipSemicolon bool) string {
+// func (rs *SQLSelectStatement) Structcher() string { }
+
+func (rs *SQLSelectStatement) toString(skipSemicolon bool) string {
 	var out bytes.Buffer
 	out.WriteString(SQLSelect.String())
 
@@ -199,7 +206,7 @@ func (rs *SQLSelectStatement) ToString(skipSemicolon bool) string {
 }
 
 func (rs *SQLSelectStatement) String() string {
-	return rs.ToString(true)
+	return rs.toString(true)
 }
 
 // ExpressionStatement todo.
@@ -253,6 +260,24 @@ type InfixExpression struct {
 	Left     Expression
 	Operator TokenType
 	Right    Expression
+}
+
+func (oe *InfixExpression) Structcher() string {
+	var out bytes.Buffer
+
+	if oe.Operator != SQLAs {
+		out.WriteString("(")
+	}
+
+	out.WriteString(structcher(oe.Left))
+	out.WriteString(" " + oe.Operator.String() + " ")
+	out.WriteString(structcher(oe.Right))
+
+	if oe.Operator != SQLAs {
+		out.WriteString(")")
+	}
+
+	return out.String()
 }
 
 func (oe *InfixExpression) expressionNode()      {}
@@ -313,6 +338,15 @@ type InExpression struct {
 	Token     Token // The 'in' token
 	Column    Expression
 	Arguments []Expression
+}
+
+func (ce *InExpression) Structcher() string {
+	var out bytes.Buffer
+	out.WriteString(ce.Column.String() + " ")
+	out.WriteString(SQLIn.String() + " ")
+	out.WriteString("(?)")
+
+	return out.String()
 }
 
 func (ce *InExpression) expressionNode()      {}
@@ -487,9 +521,30 @@ type SQLCondition struct {
 	Expression Expression
 }
 
+func (sl *SQLCondition) Structcher() string {
+	return structcher(sl.Expression)
+}
+
 func (sl *SQLCondition) expressionNode()      {}
 func (sl *SQLCondition) TokenLiteral() string { return sl.Expression.TokenLiteral() }
 func (sl *SQLCondition) String() string       { return sl.Expression.String() }
+
+func structcher(exp Expression) string {
+	if exp == nil {
+		return ""
+	}
+
+	switch tp := exp.(type) {
+	case *IntegerLiteral:
+		return "?"
+	case *StringLiteral:
+		return "?"
+	case SQLStructcher:
+		return tp.Structcher()
+	}
+
+	return exp.String()
+}
 
 // ArrayLiteral todo.
 type ArrayLiteral struct {
@@ -541,7 +596,7 @@ func (ie *SQLSubSelectExpression) TokenLiteral() string { return ie.Token.Litera
 func (ie *SQLSubSelectExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString("(")
-	out.WriteString(ie.Select.ToString(false))
+	out.WriteString(ie.Select.toString(false))
 	out.WriteString(")")
 	return out.String()
 }

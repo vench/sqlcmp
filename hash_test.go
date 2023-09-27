@@ -47,6 +47,12 @@ func TestSemiHash(t *testing.T) {
 			segment: SegmentFrom,
 			out:     testHashString(t, "users||"),
 		},
+		{
+			name:    "segment all and skip values",
+			sql:     "select * from users where id = 100 and abc IN (99,100)",
+			segment: SegmentAll | SegmentSkipValues,
+			out:     testHashString(t, "*||users||((id = ?) AND abc IN (?))||"),
+		},
 	}
 
 	for i := range tt {

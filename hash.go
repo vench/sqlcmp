@@ -41,26 +41,25 @@ func SemiHash(sql string, s Segment) (string, error) {
 	var sb strings.Builder
 
 	if s&SegmentColumns != 0 {
-		writeSegment(&sb, stmt.SQLSelectColumns)
+		writeSegment(&sb, stmt.SQLSelectColumns, s)
 	}
 
 	if s&SegmentFrom != 0 {
-		writeSegment(&sb, stmt.From)
+		writeSegment(&sb, stmt.From, s)
 	}
 
 	if s&SegmentJoin != 0 {
-		writeSegment(&sb, stmt.Join)
+		writeSegment(&sb, stmt.Join, s)
 	}
 
 	if s&SegmentWhere != 0 {
-		// @todo: use SegmentSkipValues
-		writeSegment(&sb, stmt.Cond)
+		writeSegment(&sb, stmt.Cond, s)
 	}
 	if s&SegmentGroup != 0 {
-		writeSegment(&sb, stmt.Group)
+		writeSegment(&sb, stmt.Group, s)
 	}
 	if s&SegmentOrder != 0 {
-		writeSegment(&sb, stmt.Order)
+		writeSegment(&sb, stmt.Order, s)
 	}
 
 	return hashString(sb.String())
@@ -77,17 +76,26 @@ func hashString(s string) (string, error) {
 	return hex.EncodeToString(sum), nil
 }
 
-func writeSegment(b *strings.Builder, exp []Expression) {
+func writeSegment(b *strings.Builder, exp []Expression, s Segment) {
 	if len(exp) == 0 {
 		return
 	}
 
-	sort.SliceStable(exp, func(i, j int) bool {
-		return exp[i].String() > exp[i].String()
+	str := make([]string, len(exp))
+	for i := range exp {
+		if s&SegmentSkipValues != 0 {
+			str[i] = structcher(exp[i])
+		} else {
+			str[i] = exp[i].String()
+		}
+	}
+
+	sort.SliceStable(str, func(i, j int) bool {
+		return str[i] > str[j]
 	})
 
-	for i := range exp {
-		b.WriteString(exp[i].String())
+	for i := range str {
+		b.WriteString(str[i])
 		b.WriteString(delimiterSegment)
 	}
 
