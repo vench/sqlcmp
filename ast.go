@@ -333,6 +333,34 @@ func (ie *IfExpression) String() string {
 	return out.String()
 }
 
+type BetweenExpression struct {
+	Token  Token // The 'in' token
+	Column Expression
+	From   Expression
+	To     Expression
+}
+
+func (ce *BetweenExpression) Structcher() string {
+	var out bytes.Buffer
+	out.WriteString(ce.Column.String() + " ")
+	out.WriteString(SQLBetween.String() + " ? AND ?")
+
+	return out.String()
+}
+
+func (ce *BetweenExpression) expressionNode()      {}
+func (ce *BetweenExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *BetweenExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(ce.Column.String() + " ")
+	out.WriteString(SQLBetween.String() + " ")
+	out.WriteString(ce.From.String())
+	out.WriteString(" AND ")
+	out.WriteString(ce.To.String())
+
+	return out.String()
+}
+
 // InExpression todo.
 type InExpression struct {
 	Token     Token // The 'in' token

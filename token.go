@@ -35,28 +35,29 @@ const (
 
 	// List of SQL allow tokens.
 
-	SQLSelect TokenType = "SELECT"
-	SQLFrom   TokenType = "FROM"
-	SQLWhere  TokenType = "WHERE"
-	SQLAnd    TokenType = "AND"
-	SQLOr     TokenType = "OR"
-	SQLLike   TokenType = "LIKE"
-	SQLOrder  TokenType = "ORDER"
-	SQLGroup  TokenType = "GROUP"
-	SQLBy     TokenType = "BY"
-	SQLAs     TokenType = "AS"
-	SQLDesc   TokenType = "DESC"
-	SQLAsc    TokenType = "ASC"
-	SQLLimit  TokenType = "LIMIT"
-	SQLJoin   TokenType = "JOIN"
-	SQLInner  TokenType = "INNER"
-	SQLLeft   TokenType = "LEFT"
-	SQLRight  TokenType = "RIGHT"
-	SQLOuter  TokenType = "OUTER"
-	SQLCross  TokenType = "CROSS"
-	SQLOn     TokenType = "ON"
-	SQLNot    TokenType = "NOT"
-	SQLIn     TokenType = "IN"
+	SQLSelect  TokenType = "SELECT"
+	SQLFrom    TokenType = "FROM"
+	SQLWhere   TokenType = "WHERE"
+	SQLAnd     TokenType = "AND"
+	SQLOr      TokenType = "OR"
+	SQLLike    TokenType = "LIKE"
+	SQLOrder   TokenType = "ORDER"
+	SQLGroup   TokenType = "GROUP"
+	SQLBy      TokenType = "BY"
+	SQLAs      TokenType = "AS"
+	SQLDesc    TokenType = "DESC"
+	SQLAsc     TokenType = "ASC"
+	SQLLimit   TokenType = "LIMIT"
+	SQLJoin    TokenType = "JOIN"
+	SQLInner   TokenType = "INNER"
+	SQLLeft    TokenType = "LEFT"
+	SQLRight   TokenType = "RIGHT"
+	SQLOuter   TokenType = "OUTER"
+	SQLCross   TokenType = "CROSS"
+	SQLOn      TokenType = "ON"
+	SQLNot     TokenType = "NOT"
+	SQLIn      TokenType = "IN"
+	SQLBetween TokenType = "BETWEEN"
 
 	// List of allow operators.
 
@@ -105,28 +106,29 @@ var keywords = map[string]TokenType{
 	"hash":   HASH,
 	"H":      HASH,
 
-	"select": SQLSelect,
-	"from":   SQLFrom,
-	"where":  SQLWhere,
-	"and":    SQLAnd,
-	"or":     SQLOr,
-	"like":   SQLLike,
-	"order":  SQLOrder,
-	"group":  SQLGroup,
-	"by":     SQLBy,
-	"as":     SQLAs,
-	"desc":   SQLDesc,
-	"asc":    SQLAsc,
-	"limit":  SQLLimit,
-	"join":   SQLJoin,
-	"left":   SQLLeft,
-	"right":  SQLRight,
-	"inner":  SQLInner,
-	"cross":  SQLCross,
-	"outer":  SQLOuter,
-	"on":     SQLOn,
-	"not":    SQLNot,
-	"in":     SQLIn,
+	"select":  SQLSelect,
+	"from":    SQLFrom,
+	"where":   SQLWhere,
+	"and":     SQLAnd,
+	"or":      SQLOr,
+	"like":    SQLLike,
+	"order":   SQLOrder,
+	"group":   SQLGroup,
+	"by":      SQLBy,
+	"as":      SQLAs,
+	"desc":    SQLDesc,
+	"asc":     SQLAsc,
+	"limit":   SQLLimit,
+	"join":    SQLJoin,
+	"left":    SQLLeft,
+	"right":   SQLRight,
+	"inner":   SQLInner,
+	"cross":   SQLCross,
+	"outer":   SQLOuter,
+	"on":      SQLOn,
+	"not":     SQLNot,
+	"in":      SQLIn,
+	"between": SQLBetween,
 }
 
 // LookupIdent converts string to TokenType.

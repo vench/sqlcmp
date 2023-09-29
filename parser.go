@@ -106,10 +106,9 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(SQLOr, p.parseInfixCondExpression)
 	p.registerInfix(SQLAs, p.parseInfixAsExpression)
 	p.registerInfix(SQLIn, p.parseInfixInExpression)
+	p.registerInfix(SQLLike, p.parseInfixLikeExpression)
+	p.registerInfix(SQLBetween, p.parseInfixBetweenExpression)
 	// DOT
-
-	//nolint:gocritic
-	// p.registerPrefix(STRING, p.parseSQLSource)
 
 	return p
 }
@@ -229,10 +228,6 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 		p.nextToken()
 	}
 
-	if len(stmt.SQLSelectColumns) > 1 {
-		// panic("p.nextToken() " + stmt.String())
-	}
-
 	// parse from
 	if !p.curTokenIs(SQLFrom) {
 		if !p.curTokenIs(SEMICOLON, EOF, RPAREN) {
@@ -253,6 +248,10 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 			stmt.From = append(stmt.From, v)
 		}
 		p.nextToken()
+	}
+
+	if p.curTokenIs(RPAREN) {
+		return stmt
 	}
 	/*
 		stmt.From = append(stmt.From, p.parseExpression(LOWEST))
@@ -313,6 +312,10 @@ func (p *Parser) parseSQLSelectStatement() *SQLSelectStatement {
 				stmt.Cond = append(stmt.Cond, cond)
 			}
 			p.nextToken()
+		}
+
+		if p.curTokenIs(RPAREN) {
+			return stmt
 		}
 	}
 
@@ -548,22 +551,6 @@ func (p *Parser) curPrecedence() int {
 	return LOWEST
 }
 
-func (p *Parser) parseInfixExpression(left Expression) Expression {
-	defer untrace(trace("parseInfixExpression"))
-
-	expression := &InfixExpression{
-		Token:    p.curToken,
-		Operator: p.curToken.Type,
-		Left:     left,
-	}
-	precedence := p.curPrecedence()
-	p.nextToken()
-
-	expression.Right = p.parseExpression(precedence)
-
-	return expression
-}
-
 func (p *Parser) parseBoolean() Expression {
 	return &Boolean{Token: p.curToken, Value: p.curTokenIs(TRUE)}
 }
@@ -796,6 +783,7 @@ func (p *Parser) parseSetsLiteralShort() Expression {
 	return sets
 }
 
+// deprecated
 func (p *Parser) parseSetsLiteral() Expression {
 	sets := &SetsLiteral{Token: p.curToken}
 	p.nextToken() // skeep {
@@ -823,39 +811,6 @@ func (p *Parser) parseExpressionList(end TokenType) []Expression {
 	}
 
 	return list
-}
-
-func (p *Parser) parseInfixInExpression(left Expression) Expression {
-	if !p.curTokenIs(SQLIn) {
-		p.addError("check IN")
-		return nil
-	}
-	if !p.expectPeek(LPAREN) {
-		return nil
-	}
-	exp := &InExpression{Token: p.curToken, Column: left}
-
-	exp.Arguments = p.parseExpressionList(RPAREN)
-
-	return exp
-}
-
-func (p *Parser) parseInfixAsExpression(left Expression) Expression {
-	if exp := p.parseInfixExpression(left); exp != nil {
-		return exp
-	}
-
-	return nil
-}
-
-func (p *Parser) parseInfixCondExpression(left Expression) Expression {
-	if exp := p.parseInfixExpression(left); exp != nil {
-		return &SQLCondition{
-			Expression: exp,
-		}
-	}
-
-	return nil
 }
 
 func (p *Parser) parseIndexExpression(left Expression) Expression {

@@ -116,6 +116,59 @@ func TestParser_parseSQLCond(t *testing.T) {
 				},
 			},
 		},
+		{
+			input:         "(email like '%abc%')",
+			expectedQuery: "(email LIKE %abc%)",
+			expectedValue: &SQLCondition{
+				Expression: &SQLCondition{
+					Expression: &InfixExpression{
+						Token:    Token{Type: SQLLike, Literal: "like"},
+						Left:     &Identifier{Token: Token{Type: IDENT, Literal: "email"}, Value: "email"},
+						Operator: SQLLike,
+						Right: &StringLiteral{
+							Token: Token{Type: STRING, Literal: "%abc%"},
+							Value: "%abc%",
+						},
+					},
+				},
+			},
+		},
+		{
+			input:         "date between '2023-10-01' and '2023-10-15'",
+			expectedQuery: "date BETWEEN 2023-10-01 AND 2023-10-15",
+			expectedValue: &SQLCondition{
+				Expression: &BetweenExpression{
+					Token:  Token{Type: SQLBetween, Literal: "between"},
+					Column: &Identifier{Token: Token{Type: IDENT, Literal: "date"}, Value: "date"},
+					From: &Identifier{
+						Token: Token{Type: STRING, Literal: "2023-10-01"},
+						Value: "2023-10-01",
+					},
+					To: &Identifier{
+						Token: Token{Type: STRING, Literal: "2023-10-15"},
+						Value: "2023-10-15",
+					},
+				},
+			},
+		},
+		{
+			input:         "range between 10 and 999",
+			expectedQuery: "range BETWEEN 10 AND 999",
+			expectedValue: &SQLCondition{
+				Expression: &BetweenExpression{
+					Token:  Token{Type: SQLBetween, Literal: "between"},
+					Column: &Identifier{Token: Token{Type: IDENT, Literal: "range"}, Value: "range"},
+					From: &Identifier{
+						Token: Token{Type: INT, Literal: "10"},
+						Value: "10",
+					},
+					To: &Identifier{
+						Token: Token{Type: INT, Literal: "999"},
+						Value: "999",
+					},
+				},
+			},
+		},
 	}
 
 	for i := range tests {
@@ -242,6 +295,31 @@ func TestParser_parseSQLColumns(t *testing.T) {
 				Right: &StringLiteral{
 					Token: Token{Type: STRING, Literal: "dt"},
 					Value: "dt",
+				},
+			},
+		},
+		{
+			input:         " sum(price) AS amount",
+			expectedQuery: "sum(price) AS amount",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "AS"},
+				Operator: SQLAs,
+				Left: &CallExpression{
+					Token: Token{Type: LPAREN, Literal: "("},
+					Function: &Identifier{
+						Token: Token{Type: IDENT, Literal: "sum"},
+						Value: "sum",
+					},
+					Arguments: []Expression{
+						&Identifier{
+							Token: Token{Type: IDENT, Literal: "price"},
+							Value: "price",
+						},
+					},
+				},
+				Right: &Identifier{
+					Token: Token{Type: IDENT, Literal: "amount"},
+					Value: "amount",
 				},
 			},
 		},
@@ -386,7 +464,6 @@ func TestParser_parseSQLSelect(t *testing.T) {
 	}
 }
 
-// @TODO: x
 func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 	t.Parallel()
 
@@ -395,12 +472,12 @@ func TestParser_parseSQLSelectStatementMulti(t *testing.T) {
 		expectedQuery string
 	}{
 		{
-			input:         "Select name, test, now() AS db, 100 as id from t",
-			expectedQuery: "SELECT name, test, now() AS db, 100 AS id FROM t;",
-		},
-		{
 			input:         "Select (SELECT 1) AS nm",
 			expectedQuery: "SELECT (SELECT 1) AS nm;",
+		},
+		{
+			input:         "select (select max(price) from orders where orders.user_id = users.id) as max_price, id from users where id > 1",
+			expectedQuery: "SELECT (SELECT max(price) FROM orders WHERE (orders.user_id = users.id)) AS max_price, id FROM users WHERE (id > 1);",
 		},
 	}
 
@@ -498,7 +575,14 @@ func TestParser_parseSQLSelectStatement(t *testing.T) {
 		},
 		{input: "select * from t WHERE id = 1 LIMIT 10", expectedQuery: "SELECT * FROM t WHERE (id = 1) LIMIT 10;"},
 		{input: "select * from t WHERE id = 1 LIMIT 5, 10", expectedQuery: "SELECT * FROM t WHERE (id = 1) LIMIT 5, 10;"},
-		// {input: "select (select max(price) from orders) as max_price, name from users", expectedQuery: ""},
+		{
+			input:         "select * from t where date between '2020-01-01' AND '2023-10-10' AND id > 3",
+			expectedQuery: "SELECT * FROM t WHERE (date BETWEEN 2020-01-01 AND 2023-10-10 AND (id > 3));",
+		},
+		{
+			input:         "select (select max(price) from orders) as max_price, name from users",
+			expectedQuery: "SELECT (SELECT max(price) FROM orders) AS max_price, name FROM users;",
+		},
 	}
 
 	for _, tt := range tests {
