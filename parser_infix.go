@@ -40,32 +40,6 @@ func (p *Parser) parseInfixInExpression(left Expression) Expression {
 	return exp
 }
 
-func (p *Parser) parseInfixAsExpression(left Expression) Expression {
-	if exp := p.parseInfixExpression(left); exp != nil {
-		return exp
-	}
-
-	return nil
-}
-
-func (p *Parser) parseInfixCondExpression(left Expression) Expression {
-	if exp := p.parseInfixExpression(left); exp != nil {
-		return &SQLCondition{
-			Expression: exp,
-		}
-	}
-
-	return nil
-}
-
-func (p *Parser) parseInfixLikeExpression(left Expression) Expression {
-	if exp := p.parseInfixExpression(left); exp != nil {
-		return exp
-	}
-
-	return nil
-}
-
 func (p *Parser) parseInfixExpression(left Expression) Expression {
 	defer untrace(trace("parseInfixExpression"))
 
@@ -80,4 +54,20 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 	expression.Right = p.parseExpression(precedence)
 
 	return expression
+}
+
+func (p *Parser) parseCallExpression(function Expression) Expression {
+	exp := &CallExpression{Token: p.curToken, Function: function}
+	exp.Arguments = p.parseExpressionList(RPAREN)
+	return exp
+}
+
+func (p *Parser) parseIndexExpression(left Expression) Expression {
+	exp := &IndexExpression{Token: p.curToken, Left: left}
+	p.nextToken()
+	exp.Index = p.parseExpression(LOWEST)
+	if !p.expectPeek(RBRACKET) {
+		return nil
+	}
+	return exp
 }

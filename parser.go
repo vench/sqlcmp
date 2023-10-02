@@ -73,18 +73,13 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(MINUS, p.parsePrefixExpression)
 	p.registerPrefix(TRUE, p.parseBoolean)
 	p.registerPrefix(FALSE, p.parseBoolean)
-
 	p.registerPrefix(LPAREN, p.parseSQLSubSelect)
 	p.registerPrefix(LPAREN, p.parseSQLGroupedCondition)
-
 	p.registerPrefix(ASTERISK, p.parseAsterisk)
 	p.registerPrefix(IF, p.parseIfExpression)
 	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(STRING, p.parseStringLiteral)
 	p.registerPrefix(LBRACKET, p.parseArrayLiteral)
-	p.registerPrefix(SETS, p.parseSetsLiteral)
-	p.registerPrefix(LBRACE, p.parseSetsLiteralShort)
-	p.registerPrefix(HASH, p.parseHashLiteral)
 	p.registerPrefix(SQLSelect, p.parseSQLSubSelect)
 
 	p.infixParseFns = make(map[TokenType]infixParseFn)
@@ -102,11 +97,12 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(GT, p.parseInfixExpression)
 	p.registerInfix(LPAREN, p.parseCallExpression)
 	p.registerInfix(LBRACKET, p.parseIndexExpression)
-	p.registerInfix(SQLAnd, p.parseInfixCondExpression)
-	p.registerInfix(SQLOr, p.parseInfixCondExpression)
-	p.registerInfix(SQLAs, p.parseInfixAsExpression)
+	p.registerInfix(SQLAnd, p.parseInfixExpression)
+	// parseInfixExpression
+	p.registerInfix(SQLOr, p.parseInfixExpression)
+	p.registerInfix(SQLAs, p.parseInfixExpression)
 	p.registerInfix(SQLIn, p.parseInfixInExpression)
-	p.registerInfix(SQLLike, p.parseInfixLikeExpression)
+	p.registerInfix(SQLLike, p.parseInfixExpression)
 	p.registerInfix(SQLBetween, p.parseInfixBetweenExpression)
 	// DOT
 
@@ -118,7 +114,7 @@ func (p *Parser) nextToken() {
 	p.peekToken = p.l.NextToken()
 }
 
-// ParseProgram todo.
+// ParseProgram зarse зrogram.
 func (p *Parser) ParseProgram() *Program {
 	program := &Program{}
 	program.Statements = []Statement{}
@@ -132,7 +128,7 @@ func (p *Parser) ParseProgram() *Program {
 	return program
 }
 
-// ParseStatement todo.
+// ParseStatement зarse ыtatement.
 func (p *Parser) ParseStatement() Statement {
 	return p.parseStatement()
 }
@@ -637,40 +633,14 @@ func (p *Parser) parseFunctionParameters() []*Identifier {
 	for p.peekTokenIs(COMMA) {
 		p.nextToken()
 		p.nextToken()
-		ident := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
-		identifiers = append(identifiers, ident)
+		ident2 := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		identifiers = append(identifiers, ident2)
 	}
 	if !p.expectPeek(RPAREN) {
 		return nil
 	}
 
 	return identifiers
-}
-
-func (p *Parser) parseCallExpression(function Expression) Expression {
-	exp := &CallExpression{Token: p.curToken, Function: function}
-	exp.Arguments = p.parseExpressionList(RPAREN)
-	return exp
-}
-
-//nolint:unused
-func (p *Parser) parseCallArguments() []Expression {
-	var args []Expression
-	if p.peekTokenIs(RPAREN) {
-		p.nextToken()
-		return args
-	}
-	p.nextToken()
-	args = append(args, p.parseExpression(LOWEST))
-	for p.peekTokenIs(COMMA) {
-		p.nextToken()
-		p.nextToken()
-		args = append(args, p.parseExpression(LOWEST))
-	}
-	if !p.expectPeek(RPAREN) {
-		return nil
-	}
-	return args
 }
 
 func (p *Parser) parseStringLiteral() Expression {
@@ -777,20 +747,6 @@ func (p *Parser) parseArrayLiteral() Expression {
 	return array
 }
 
-func (p *Parser) parseSetsLiteralShort() Expression {
-	sets := &SetsLiteral{Token: p.curToken}
-	sets.Elements = p.parseExpressionList(RBRACE)
-	return sets
-}
-
-// deprecated
-func (p *Parser) parseSetsLiteral() Expression {
-	sets := &SetsLiteral{Token: p.curToken}
-	p.nextToken() // skeep {
-	sets.Elements = p.parseExpressionList(RBRACE)
-	return sets
-}
-
 func (p *Parser) parseExpressionList(end TokenType) []Expression {
 	var list []Expression
 	if p.peekTokenIs(end) {
@@ -811,16 +767,6 @@ func (p *Parser) parseExpressionList(end TokenType) []Expression {
 	}
 
 	return list
-}
-
-func (p *Parser) parseIndexExpression(left Expression) Expression {
-	exp := &IndexExpression{Token: p.curToken, Left: left}
-	p.nextToken()
-	exp.Index = p.parseExpression(LOWEST)
-	if !p.expectPeek(RBRACKET) {
-		return nil
-	}
-	return exp
 }
 
 // parseSQLSubSelect parse sub query like: (select ...).
@@ -847,29 +793,6 @@ func (p *Parser) parseSQLSubSelect() Expression {
 	}
 
 	return exp
-}
-
-func (p *Parser) parseHashLiteral() Expression {
-	hash := &HashLiteral{Token: p.curToken}
-	p.nextToken() // skeep {
-	hash.Pairs = make(map[Expression]Expression)
-	for !p.peekTokenIs(RBRACE) {
-		p.nextToken()
-		key := p.parseExpression(LOWEST)
-		if !p.expectPeek(COLON) {
-			return nil
-		}
-		p.nextToken()
-		value := p.parseExpression(LOWEST)
-		hash.Pairs[key] = value
-		if !p.peekTokenIs(RBRACE) && !p.expectPeek(COMMA) {
-			return nil
-		}
-	}
-	if !p.expectPeek(RBRACE) {
-		return nil
-	}
-	return hash
 }
 
 // util

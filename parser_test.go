@@ -19,26 +19,24 @@ func TestParser_parseSQLCond(t *testing.T) {
 		{
 			input: "(t1.key = t3.key and t3.date > now())", expectedQuery: "((t1.key = t3.key) AND (t3.date > now()))", expectedValue: &SQLCondition{
 				Expression: &SQLCondition{
-					Expression: &SQLCondition{
-						Expression: &InfixExpression{
-							Token: Token{Type: SQLAnd, Literal: "and"},
-							Left: &InfixExpression{
-								Token:    Token{Type: ASSIGN, Literal: "="},
-								Left:     &Identifier{Token: Token{Type: IDENT, Literal: "t1"}, Value: "t1.key"},
-								Operator: ASSIGN,
-								Right:    &Identifier{Token: Token{Type: IDENT, Literal: "t3"}, Value: "t3.key"},
-							},
-							Operator: SQLAnd,
-							Right: &InfixExpression{
-								Token:    Token{Type: GT, Literal: ">"},
-								Left:     &Identifier{Token: Token{Type: IDENT, Literal: "t3"}, Value: "t3.date"},
-								Operator: GT,
-								Right: &CallExpression{
-									Token: Token{Type: LPAREN, Literal: "("},
-									Function: &Identifier{
-										Token: Token{Type: IDENT, Literal: "now"},
-										Value: "now",
-									},
+					Expression: &InfixExpression{
+						Token: Token{Type: SQLAnd, Literal: "and"},
+						Left: &InfixExpression{
+							Token:    Token{Type: ASSIGN, Literal: "="},
+							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "t1"}, Value: "t1.key"},
+							Operator: ASSIGN,
+							Right:    &Identifier{Token: Token{Type: IDENT, Literal: "t3"}, Value: "t3.key"},
+						},
+						Operator: SQLAnd,
+						Right: &InfixExpression{
+							Token:    Token{Type: GT, Literal: ">"},
+							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "t3"}, Value: "t3.date"},
+							Operator: GT,
+							Right: &CallExpression{
+								Token: Token{Type: LPAREN, Literal: "("},
+								Function: &Identifier{
+									Token: Token{Type: IDENT, Literal: "now"},
+									Value: "now",
 								},
 							},
 						},
@@ -95,23 +93,22 @@ func TestParser_parseSQLCond(t *testing.T) {
 			},
 		},
 		{
-			input: "x=1 and y=2", expectedQuery: "((x = 1) AND (y = 2))", expectedValue: &SQLCondition{
-				Expression: &SQLCondition{
-					Expression: &InfixExpression{
-						Token: Token{Type: SQLAnd, Literal: "and"},
-						Left: &InfixExpression{
-							Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
-							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "x"}, Value: "x"},
-							Operator: ASSIGN,
-							Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
-						},
-						Operator: SQLAnd,
-						Right: &InfixExpression{
-							Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
-							Left:     &Identifier{Token: Token{Type: IDENT, Literal: "y"}, Value: "y"},
-							Operator: ASSIGN,
-							Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "2"}, Value: 2},
-						},
+			input: "x=1 and y=2", expectedQuery: "((x = 1) AND (y = 2))",
+			expectedValue: &SQLCondition{
+				Expression: &InfixExpression{
+					Token: Token{Type: SQLAnd, Literal: "and"},
+					Left: &InfixExpression{
+						Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
+						Left:     &Identifier{Token: Token{Type: IDENT, Literal: "x"}, Value: "x"},
+						Operator: ASSIGN,
+						Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "1"}, Value: 1},
+					},
+					Operator: SQLAnd,
+					Right: &InfixExpression{
+						Token:    Token{Type: ASSIGN, Literal: ASSIGN.String()},
+						Left:     &Identifier{Token: Token{Type: IDENT, Literal: "y"}, Value: "y"},
+						Operator: ASSIGN,
+						Right:    &IntegerLiteral{Token: Token{Type: INT, Literal: "2"}, Value: 2},
 					},
 				},
 			},
@@ -120,7 +117,7 @@ func TestParser_parseSQLCond(t *testing.T) {
 			input:         "(email like '%abc%')",
 			expectedQuery: "(email LIKE %abc%)",
 			expectedValue: &SQLCondition{
-				Expression: &SQLCondition{
+				&SQLCondition{
 					Expression: &InfixExpression{
 						Token:    Token{Type: SQLLike, Literal: "like"},
 						Left:     &Identifier{Token: Token{Type: IDENT, Literal: "email"}, Value: "email"},
@@ -168,7 +165,7 @@ func TestParser_parseSQLCond(t *testing.T) {
 					},
 				},
 			},
-		},
+		}, /**/
 	}
 
 	for i := range tests {
@@ -178,7 +175,7 @@ func TestParser_parseSQLCond(t *testing.T) {
 
 		require.EqualValuesf(t, 0, len(p.Errors()), "%v", p.Errors())
 		require.Equal(t, tc.expectedQuery, exp.String())
-		require.Equal(t, tc.expectedValue, exp)
+		require.Equalf(t, tc.expectedValue, exp, "input query: %s", tc.expectedQuery)
 	}
 }
 
@@ -582,6 +579,18 @@ func TestParser_parseSQLSelectStatement(t *testing.T) {
 		{
 			input:         "select (select max(price) from orders) as max_price, name from users",
 			expectedQuery: "SELECT (SELECT max(price) FROM orders) AS max_price, name FROM users;",
+		},
+		{
+			input: "SELECT " +
+				"`date` AS `time`, sum(req) AS `req_total`, sum(req2) AS `req2_total`,  sum(res) AS `res_total`, sum(res2) AS `res2_total` " +
+				"FROM a_requests " +
+				"WHERE  (`date` BETWEEN '2016-11-01' AND '2016-11-30') AND (timestamp BETWEEN '2016-11-01 00:00:00' AND '2016-11-30 23:59:59') " +
+				"GROUP BY time",
+			expectedQuery: "SELECT " +
+				"date AS time, sum(req) AS req_total, sum(req2) AS req2_total, sum(res) AS res_total, sum(res2) AS res2_total " +
+				"FROM a_requests " +
+				"WHERE (date BETWEEN 2016-11-01 AND 2016-11-30 AND timestamp BETWEEN 2016-11-01 00:00:00 AND 2016-11-30 23:59:59) " +
+				"GROUP BY time;",
 		},
 	}
 
