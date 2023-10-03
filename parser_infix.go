@@ -71,3 +71,21 @@ func (p *Parser) parseIndexExpression(left Expression) Expression {
 	}
 	return exp
 }
+
+func (p *Parser) parseInfixDot(left Expression) Expression {
+	if !p.curTokenIs(DOT) {
+		p.addError("check DOT")
+		return nil
+	}
+
+	if !p.peekTokenIs(STRING, IDENT) {
+		p.addError("next is STRING or IDENT")
+		return nil
+	}
+
+	exp := &DotExpression{Token: p.curToken, Left: left}
+	p.nextToken()
+	exp.Right = p.parseIdentifier()
+
+	return exp
+}

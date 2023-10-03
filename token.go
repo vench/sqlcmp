@@ -72,6 +72,8 @@ const (
 	GT          TokenType = ">"
 	EQ          TokenType = "=="
 	NotEq       TokenType = "!="
+	GtOrEg      TokenType = ">="
+	LtOrEg      TokenType = "<="
 	STRING      TokenType = "STRING"
 	LBRACKET    TokenType = "["
 	RBRACKET    TokenType = "]"
@@ -129,6 +131,8 @@ var keywords = map[string]TokenType{
 	"not":     SQLNot,
 	"in":      SQLIn,
 	"between": SQLBetween,
+	// fix clickhouse - todo move to real case.
+	"prewhere": SQLWhere,
 }
 
 // LookupIdent converts string to TokenType.

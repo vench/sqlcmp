@@ -17,7 +17,9 @@ func TestParser_parseSQLCond(t *testing.T) {
 		expectedValue any
 	}{
 		{
-			input: "(t1.key = t3.key and t3.date > now())", expectedQuery: "((t1.key = t3.key) AND (t3.date > now()))", expectedValue: &SQLCondition{
+			input:         "(t1.key = t3.key and t3.date > now())",
+			expectedQuery: "((t1.key = t3.key) AND (t3.date > now()))",
+			expectedValue: &SQLCondition{
 				Expression: &SQLCondition{
 					Expression: &InfixExpression{
 						Token: Token{Type: SQLAnd, Literal: "and"},
@@ -165,7 +167,45 @@ func TestParser_parseSQLCond(t *testing.T) {
 					},
 				},
 			},
-		}, /**/
+		},
+		{
+			input:         "(`u`.`status` != 'deleted') AND (`a`.`id` IN (998))",
+			expectedQuery: "((u.status != deleted) AND a.id IN (998))",
+			expectedValue: &SQLCondition{
+				Expression: &InfixExpression{
+					Token:    Token{Type: SQLAnd, Literal: "AND"},
+					Operator: SQLAnd,
+					Left: &SQLCondition{
+						Expression: &InfixExpression{
+							Token:    Token{Type: NotEq, Literal: "!="},
+							Operator: NotEq,
+							Left: &DotExpression{
+								Token: Token{Type: DOT, Literal: "."},
+								Left:  &StringLiteral{Token: Token{Type: STRING, Literal: "u"}, Value: "u"},
+								Right: &Identifier{Token: Token{Type: STRING, Literal: "status"}, Value: "status"},
+							},
+							Right: &StringLiteral{Token: Token{Type: STRING, Literal: "deleted"}, Value: "deleted"},
+						},
+					},
+					Right: &SQLCondition{
+						Expression: &InExpression{
+							Token: Token{Type: LPAREN, Literal: "("},
+							Column: &DotExpression{
+								Token: Token{Type: DOT, Literal: "."},
+								Left:  &StringLiteral{Token: Token{Type: STRING, Literal: "a"}, Value: "a"},
+								Right: &Identifier{Token: Token{Type: STRING, Literal: "id"}, Value: "id"},
+							},
+							Arguments: []Expression{
+								&IntegerLiteral{
+									Token: Token{Type: INT, Literal: "998"},
+									Value: 998,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i := range tests {
@@ -341,6 +381,94 @@ func TestParser_parseSQLColumns(t *testing.T) {
 				Right: &Identifier{
 					Token: Token{Type: IDENT, Literal: "id"},
 					Value: "id",
+				},
+			},
+		},
+		{
+			// CH dialect
+			input:         "sumIf(`count`, type=10 OR type>=100) AS `value`",
+			expectedQuery: "sumIf(count, ((type = 10) OR (type >= 100))) AS value",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "AS"},
+				Operator: "AS",
+				Left: &CallExpression{
+					Token: Token{Type: LPAREN, Literal: "("},
+					Function: &Identifier{
+						Token: Token{Type: IDENT, Literal: "sumIf"},
+						Value: "sumIf",
+					},
+					Arguments: []Expression{
+						&StringLiteral{
+							Token: Token{Type: STRING, Literal: "count"},
+							Value: "count",
+						},
+						&InfixExpression{
+							Token:    Token{Type: SQLOr, Literal: "OR"},
+							Operator: "OR",
+							Left: &InfixExpression{
+								Token: Token{Type: ASSIGN, Literal: "="},
+								Left: &Identifier{
+									Token: Token{Type: IDENT, Literal: "type"},
+									Value: "type",
+								},
+								Operator: ASSIGN,
+								Right: &IntegerLiteral{
+									Token: Token{Type: INT, Literal: "10"},
+									Value: 10,
+								},
+							},
+							Right: &InfixExpression{
+								Token: Token{Type: GtOrEg, Literal: ">="},
+								Left: &Identifier{
+									Token: Token{Type: IDENT, Literal: "type"},
+									Value: "type",
+								},
+								Operator: GtOrEg,
+								Right: &IntegerLiteral{
+									Token: Token{Type: INT, Literal: "100"},
+									Value: 100,
+								},
+							},
+						},
+					},
+				},
+				Right: &StringLiteral{
+					Token: Token{Type: STRING, Literal: "value"},
+					Value: "value",
+				},
+			},
+		},
+		// cast
+		{
+			input:         "CAST(u.smb AS unsigned) AS smb",
+			expectedQuery: "CAST(u.smb AS unsigned) AS smb",
+			expectedExp: &InfixExpression{
+				Token:    Token{Type: SQLAs, Literal: "AS"},
+				Operator: "AS",
+				Left: &CallExpression{
+					Token: Token{Type: LPAREN, Literal: "("},
+					Function: &Identifier{
+						Token: Token{Type: IDENT, Literal: "CAST"},
+						Value: "CAST",
+					},
+					Arguments: []Expression{
+						&InfixExpression{
+							Token:    Token{Type: SQLAs, Literal: "AS"},
+							Operator: "AS",
+							Left: &Identifier{
+								Token: Token{Type: IDENT, Literal: "u"},
+								Value: "u.smb",
+							},
+							Right: &Identifier{
+								Token: Token{Type: IDENT, Literal: "unsigned"},
+								Value: "unsigned",
+							},
+						},
+					},
+				},
+				Right: &Identifier{
+					Token: Token{Type: IDENT, Literal: "smb"},
+					Value: "smb",
 				},
 			},
 		},
@@ -531,6 +659,24 @@ func TestParser_parseSQLSelectStatementWithJoin(t *testing.T) {
 				"WHERE t1.id > 100 group by date",
 			expectedQuery: "SELECT * FROM t1 INNER JOIN t2 ON (t1.id = t2.id) LEFT JOIN t3 ON ((t1.key = t3.key) AND (t3.date > now())) " +
 				"WHERE (t1.id > 100) GROUP BY date;",
+		},
+		{
+			input: "SELECT u.id, u.username" +
+				", CAST(u.smb AS unsigned) AS smb" +
+				", IFNULL(CAST(u.type AS unsigned), 0) AS type, IFNULL(a.id, 0) AS a_id, IFNULL(CAST(a.type AS unsigned), 0) AS a_type, " +
+				"IFNULL(CAST(a.smb AS unsigned), 0) AS a_smb, IFNULL(a.username, '') AS a_name, IFNULL(i.client_name, '') AS client_name " +
+				" FROM `user` AS `u` " +
+				"LEFT JOIN `user_type` AS `s` ON s.user_id=u.id AND s.relation IN ('foo') " +
+				"LEFT JOIN `user` AS `a` ON s.user_id=a.id " +
+				"LEFT JOIN `user_info` AS `i` ON i.user_id=u.id " +
+				"WHERE (`u`.`status` != 'deleted') AND (`a`.`id` IN (998));",
+			expectedQuery: "SELECT u.id, u.username, CAST(u.smb AS unsigned) AS smb, IFNULL(CAST(u.type AS unsigned), 0) AS type, " +
+				"IFNULL(a.id, 0) AS a_id, IFNULL(CAST(a.type AS unsigned), 0) AS a_type, IFNULL(CAST(a.smb AS unsigned), 0) AS a_smb, " +
+				"IFNULL(a.username, ) AS a_name, IFNULL(i.client_name, ) AS client_name " +
+				"FROM user AS u " +
+				"LEFT JOIN user_type AS s ON ((s.user_id = u.id) AND s.relation IN (foo)) " +
+				"LEFT JOIN user AS a ON (s.user_id = a.id) LEFT JOIN user_info AS i ON (i.user_id = u.id) " +
+				"WHERE ((u.status != deleted) AND a.id IN (998));",
 		},
 	}
 

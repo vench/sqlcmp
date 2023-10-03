@@ -134,6 +134,8 @@ return false;
 set{1, 2, 4}
 set{1, 2, 4} | set{1, 2, 4}
 set{1, 2, 4} & set{1, 2, 4}
+100 >= 10
+20 <= 200
 `
 
 	tests := []struct {
@@ -280,6 +282,13 @@ set{1, 2, 4} & set{1, 2, 4}
 		{COMMA, ","},
 		{INT, "4"},
 		{RBRACE, "}"},
+
+		{INT, "100"},
+		{GtOrEg, ">="},
+		{INT, "10"},
+		{INT, "20"},
+		{LtOrEg, "<="},
+		{INT, "200"},
 
 		{EOF, ""},
 	}

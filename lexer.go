@@ -23,6 +23,7 @@ func (l *Lexer) readChar() {
 	l.readPosition += 1
 }
 
+//nolint:funlen
 func (l *Lexer) NextToken() Token {
 	var tok Token
 
@@ -60,9 +61,21 @@ func (l *Lexer) NextToken() Token {
 	case '*':
 		tok = newToken(ASTERISK, l.ch)
 	case '<':
-		tok = newToken(LT, l.ch)
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: LtOrEg, Literal: string(ch) + string(l.ch)}
+		} else {
+			tok = newToken(LT, l.ch)
+		}
 	case '>':
-		tok = newToken(GT, l.ch)
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: GtOrEg, Literal: string(ch) + string(l.ch)}
+		} else {
+			tok = newToken(GT, l.ch)
+		}
 	case ';':
 		tok = newToken(SEMICOLON, l.ch)
 	case ',':

@@ -9,6 +9,7 @@ const (
 	// operation priority
 	_ int = iota
 	LOWEST
+	Logic
 	EQUALS
 
 	// ==
@@ -24,6 +25,7 @@ var (
 	precedences = map[TokenType]int{
 		EQ:          EQUALS,
 		NotEq:       EQUALS,
+		GtOrEg:      EQUALS,
 		ASSIGN:      EQUALS,
 		SQLIn:       EQUALS,
 		LT:          LESSGREATER,
@@ -38,9 +40,11 @@ var (
 		BinaryAnd:   SUM,
 		BinarySlash: SUM,
 
-		SQLOr:  LOWEST,
-		SQLAnd: LOWEST,
+		SQLOr:  Logic,
+		SQLAnd: Logic,
 		SQLAs:  EQUALS,
+
+		// DOT: EQUALS,
 	}
 
 	showEnteringLeaving = false
@@ -92,6 +96,8 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(ASTERISK, p.parseInfixExpression)
 	p.registerInfix(EQ, p.parseInfixExpression)
 	p.registerInfix(NotEq, p.parseInfixExpression)
+	p.registerInfix(GtOrEg, p.parseInfixExpression)
+	p.registerInfix(LtOrEg, p.parseInfixExpression)
 	p.registerInfix(ASSIGN, p.parseInfixExpression)
 	p.registerInfix(LT, p.parseInfixExpression)
 	p.registerInfix(GT, p.parseInfixExpression)
@@ -104,7 +110,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(SQLIn, p.parseInfixInExpression)
 	p.registerInfix(SQLLike, p.parseInfixExpression)
 	p.registerInfix(SQLBetween, p.parseInfixBetweenExpression)
-	// DOT
+	p.registerInfix(DOT, p.parseInfixDot)
 
 	return p
 }

@@ -25,6 +25,7 @@ type SQLStructcher interface {
 	Structcher() string
 }
 
+// Program this structure represents a program as a list of statements.
 type Program struct {
 	Statements []Statement
 }
@@ -37,6 +38,7 @@ func (p *Program) TokenLiteral() string {
 	return ""
 }
 
+// String
 func (p *Program) String() string {
 	var out bytes.Buffer
 	for _, s := range p.Statements {
@@ -610,6 +612,23 @@ func (ie *IndexExpression) String() string {
 	out.WriteString("[")
 	out.WriteString(ie.Index.String())
 	out.WriteString("])")
+	return out.String()
+}
+
+// DotExpression todo.
+type DotExpression struct {
+	Token Token // The . token
+	Left  Expression
+	Right Expression
+}
+
+func (ie *DotExpression) expressionNode()      {}
+func (ie *DotExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *DotExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(ie.Left.String())
+	out.WriteString(".")
+	out.WriteString(ie.Right.String())
 	return out.String()
 }
 
