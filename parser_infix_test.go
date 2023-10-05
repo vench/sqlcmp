@@ -32,7 +32,7 @@ func Test_structcher(t *testing.T) {
 			out: "?",
 		},
 		{
-			name: "string",
+			name: "infix str",
 			in: &InfixExpression{
 				Left: &Identifier{
 					Value: "name",
@@ -43,6 +43,68 @@ func Test_structcher(t *testing.T) {
 				},
 			},
 			out: "(name = ?)",
+		},
+		{
+			name: "infix tree",
+			in: &InfixExpression{
+				Left: &InfixExpression{
+					Left: &Identifier{
+						Value: "xyz",
+					},
+					Operator: "=",
+					Right: &StringLiteral{
+						Value: "456",
+					},
+				},
+				Operator: "AND",
+				Right: &InfixExpression{
+					Left: &Identifier{
+						Value: "abc",
+					},
+					Operator: "=",
+					Right: &StringLiteral{
+						Value: "123",
+					},
+				},
+			},
+			out: "(abc = ?) AND(xyz = ?) AND",
+		},
+		{
+			name: "infix tree 3",
+			in: &InfixExpression{
+				Left: &InfixExpression{
+					Left: &Identifier{
+						Value: "z",
+					},
+					Operator: "=",
+					Right: &StringLiteral{
+						Value: "1",
+					},
+				},
+				Operator: "AND",
+				Right: &InfixExpression{
+					Left: &InfixExpression{
+						Left: &Identifier{
+							Value: "x",
+						},
+						Operator: "=",
+						Right: &StringLiteral{
+							Value: "2",
+						},
+					},
+					Operator: "AND",
+					Right: &InfixExpression{
+						Left: &Identifier{
+							Value: "y",
+						},
+						Operator: "=",
+						Right: &StringLiteral{
+							Value: "3",
+						},
+					},
+				},
+			},
+			out: "(x = ?) AND AND(y = ?) AND AND(z = ?) AND",
 		},
 	}
 

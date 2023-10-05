@@ -2,6 +2,7 @@ package sqlcmp
 
 import (
 	"bytes"
+	"sort"
 	"strings"
 )
 
@@ -264,19 +265,50 @@ type InfixExpression struct {
 	Right    Expression
 }
 
-func (oe *InfixExpression) Structcher() string {
-	var out bytes.Buffer
+func infixStructcherFlat(node *InfixExpression) []string {
+	flat := make([]string, 0, 2)
 
-	if oe.Operator != SQLAs {
-		out.WriteString("(")
+	if node.Operator == SQLOr || node.Operator == SQLAnd {
+		if i, ok := node.Left.(*InfixExpression); ok {
+			flat = append(flat, infixStructcherFlat(i)...)
+		} else {
+			flat = append(flat, structcher(node.Left))
+		}
+
+		if i, ok := node.Right.(*InfixExpression); ok {
+			flat = append(flat, infixStructcherFlat(i)...)
+		} else {
+			flat = append(flat, structcher(node.Right))
+		}
+
+		for i := range flat {
+			flat[i] = flat[i] + " " + node.Operator.String()
+		}
+
+		return flat
 	}
 
-	out.WriteString(structcher(oe.Left))
-	out.WriteString(" " + oe.Operator.String() + " ")
-	out.WriteString(structcher(oe.Right))
+	left := structcher(node.Left)
+	right := structcher(node.Right)
+	if _, ok := node.Right.(*Identifier); ok {
+		flat = append(flat, "("+right+" "+node.Operator.String()+" "+left+")")
+	} else {
+		flat = append(flat, "("+left+" "+node.Operator.String()+" "+right+")")
+	}
 
-	if oe.Operator != SQLAs {
-		out.WriteString(")")
+	return flat
+}
+
+func (oe *InfixExpression) Structcher() string {
+	flat := infixStructcherFlat(oe)
+	sort.SliceStable(flat, func(i, j int) bool {
+		return flat[i] < flat[j]
+	})
+
+	var out bytes.Buffer
+
+	for i := range flat {
+		out.WriteString(flat[i])
 	}
 
 	return out.String()
